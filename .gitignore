@@ -1,0 +1,44 @@
+# Environments and installed dependencies
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+node_modules/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Build products
+dist/
+build/
+*.zip
+*.tar.gz
+
+# Local device state and private material
+.env
+.env.*
+!.env.example
+.vico-iphone/
+state/
+data/
+configuration/
+runtime/
+logs/
+screenshots/
+observations/
+reports/
+*.log
+*.sqlite*
+*.db
+*.pem
+*.p12
+*.p8
+*.key
+*.mobileprovision
+DerivedData/
+.DS_Store
+
+# Local Codex overrides
+.codex/

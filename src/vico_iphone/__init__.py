@@ -1,0 +1,3 @@
+"""Independent iphone use control. No model provider or VICO runtime required."""
+
+__version__ = "0.1.0"

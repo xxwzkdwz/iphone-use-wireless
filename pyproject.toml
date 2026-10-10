@@ -1,0 +1,25 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "iphone-use"
+version = "0.1.0"
+description = "Local iPhone component and wireless-control tools for Codex"
+requires-python = ">=3.11"
+license = "MIT"
+dependencies = ["httpx>=0.28,<1", "pydantic>=2.10,<3", "mcp>=1.20,<2"]
+
+[project.scripts]
+iphone-use = "vico_iphone.cli:main"
+iphone-use-mcp = "vico_iphone.server:main"
+
+[dependency-groups]
+dev = ["pytest>=8,<10", "pytest-asyncio>=0.24,<2"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/vico_iphone"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

@@ -1,0 +1,39 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "iphone-use",
+  "version": "0.1.0",
+  "description": "Wireless iPhone control for Codex through a Mac: unplug the USB cable after pairing and setup.",
+  "author": {
+    "name": "xxwzkdwz"
+  },
+  "license": "MIT",
+  "keywords": [
+    "iphone",
+    "ios",
+    "wireless",
+    "codex",
+    "appium",
+    "xcuitest",
+    "mcp"
+  ],
+  "extensions": {
+    "com.openai": {
+      "onboardingSkill": "./skills/setup/SKILL.md",
+      "interface": {
+        "displayName": "iphone use",
+        "shortDescription": "Control your iPhone over Wi-Fi after initial pairing.",
+        "longDescription": "Operate a real iPhone wirelessly from Codex using your Mac and a prepared RemoteXPC tunnel. Complete initial pairing and signing with your own Apple account, then unplug USB and use components first. Requires macOS, Xcode, a reachable paired iPhone, and a valid WDA signature; no cross-network relay is included.",
+        "developerName": "xxwzkdwz",
+        "category": "Productivity",
+        "capabilities": [
+          "Read",
+          "Write"
+        ],
+        "defaultPrompt": [
+          "Set up iphone use for wireless control on this Mac.",
+          "Use iphone use to connect to my iPhone over Wi-Fi and read its current screen."
+        ]
+      }
+    }
+  }
+}
