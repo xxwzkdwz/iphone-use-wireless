@@ -1,5 +1,7 @@
 # iphone-use-wireless
 
+> This branch also includes an [experimental wireless direct-WDA backend](docs/DIRECT_WDA_EXPERIMENT.md), installed separately alongside the original version.
+
 **Use Wi-Fi to let Codex get things done on your iPhone.**
 
 Ask Codex to open apps, find information, enter text, tap, and swipe. After initial USB pairing, signing, and tunnel setup, unplug the cable and use your iPhone wirelessly on the same network as your Mac.

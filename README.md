@@ -1,5 +1,7 @@
 # iphone-use-wireless
 
+> 此分支额外提供[无线直连 WDA 实验版](docs/DIRECT_WDA_EXPERIMENT.md)，可与原版并行安装、分别试用。
+
 **通过 Wi-Fi，让 Codex 在你的 iPhone 上完成任务。**
 
 打开 App、查找页面内容、输入文字、点击和滑动，都可以直接告诉 Codex。首次完成 USB 配对、签名和隧道设置后，拔掉数据线，在手机与 Mac 所在的同一网络中无线使用。

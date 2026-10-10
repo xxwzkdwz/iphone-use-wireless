@@ -26,6 +26,7 @@ REQUIRED_FILES = {
     "README.en.md",
     "docs/WIRELESS_SETUP.md",
     "docs/WIRELESS_SETUP.en.md",
+    "docs/DIRECT_WDA_EXPERIMENT.md",
     "THIRD_PARTY_NOTICES.md",
     "licenses/Apache-2.0.txt",
     "licenses/WebDriverAgent-LICENSE.txt",
@@ -41,6 +42,11 @@ REQUIRED_FILES = {
     "bridge/bridge-runner.cjs",
     "bridge/xcodebuild-spawn.cjs",
     "bridge/xcodebuild-guardian.cjs",
+    "direct/package.json",
+    "direct/package-lock.json",
+    "direct/runtime.mjs",
+    "direct/runner.mjs",
+    "direct/test/runtime.test.mjs",
     "scripts/install-bridge.mjs",
     "scripts/iphone-control-patches.mjs",
     "scripts/tunnel-diagnostics.mjs",
@@ -49,6 +55,7 @@ REQUIRED_FILES = {
     "scripts/prepare-wda.py",
     "scripts/start-tunnel.mjs",
     "scripts/run-server.sh",
+    "scripts/run-direct-server.sh",
     "scripts/package.py",
     "skills/setup/SKILL.md",
     "skills/iphone/SKILL.md",
@@ -61,8 +68,11 @@ REQUIRED_FILES = {
     "tests/test_setup_script.py",
     "tests/test_prepare_wda.py",
     "tests/tunnel-setup.test.mjs",
+    "tests/test_direct_wda.py",
+    "tests/test_direct_integration.py",
 } | PNG_ASSETS
-REQUIRED_SOURCE = {"src/vico_iphone/__init__.py", "src/vico_iphone/cli.py", "src/vico_iphone/server.py"}
+REQUIRED_SOURCE = {"src/vico_iphone/__init__.py", "src/vico_iphone/cli.py", "src/vico_iphone/server.py",
+                   "src/vico_iphone/direct_wda.py"}
 FORBIDDEN_PARTS = {
     ".git", ".venv", "venv", "node_modules", "__pycache__", ".pytest_cache",
     "configuration", "runtime", "state", "data", "logs", "screenshots",
@@ -163,7 +173,7 @@ def build(root: Path, output: Path | None = None, check_only: bool = False) -> d
             for path, data in {**files, "PACKAGE_CONTENTS.json": inventory_bytes}.items():
                 info = zipfile.ZipInfo(f"{name}/{path}", (2026, 1, 1, 0, 0, 0))
                 info.create_system = 3
-                executable = path in {"scripts/run-server.sh", "scripts/install-codex.sh", "scripts/setup.sh", "scripts/prepare-wda.py", "scripts/package.py"}
+                executable = path in {"scripts/run-server.sh", "scripts/run-direct-server.sh", "scripts/install-codex.sh", "scripts/setup.sh", "scripts/prepare-wda.py", "scripts/package.py"}
                 info.external_attr = (stat.S_IFREG | (0o755 if executable else 0o644)) << 16
                 info.compress_type = zipfile.ZIP_DEFLATED
                 archive.writestr(info, data)

@@ -7,6 +7,7 @@ import platform
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 
 from .iphone_control import PhoneConfig
 from .state import operation_lock, read_json, state_home, write_json
@@ -44,6 +45,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Independent iPhone control for Codex")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("doctor", help="Read-only host prerequisites; no phone actions")
+    direct = commands.add_parser("init-direct", help="Copy existing independent phone configuration into a new experimental state directory")
+    direct.add_argument("--from-state", type=Path, default=Path.home() / ".local/share/vico-iphone")
+    direct.add_argument("--state-dir", type=Path, default=Path.home() / ".local/share/iphone-use-wireless-direct")
+    direct.add_argument("--port", type=int, default=18401)
     configure = commands.add_parser("configure", help="Save your own device/signing setup in private local state")
     configure.add_argument("--udid", required=True)
     configure.add_argument("--team-id", required=True)
@@ -59,6 +64,29 @@ def main() -> None:
     try:
         if args.command == "doctor":
             result = doctor()
+        elif args.command == "init-direct":
+            source = args.from_state.expanduser().resolve()
+            home = args.state_dir.expanduser().resolve()
+            if source == home:
+                raise ValueError("The experiment must use a different state directory; keep the original configuration.")
+            existing = read_json(source / "configuration/iphone-control.json")
+            if existing is None:
+                raise ValueError("No existing independent phone configuration found at --from-state.")
+            config = PhoneConfig.model_validate(existing)
+            if not config.enabled or config.wda_transport != "coredevice" or not config.use_preinstalled_wda:
+                raise ValueError("The experiment requires an already configured wireless, preinstalled WDA setup.")
+            if args.port == config.port:
+                raise ValueError("Use a separate loopback port for the experimental WDA forwarder.")
+            # Reuse device identity, not session/runtime state or Appium's installation path.
+            config = PhoneConfig.model_validate({**config.model_dump(), "port": args.port,
+                                                "prebuilt_wda_path": ""})
+            path = home / "configuration/iphone-control.json"
+            with operation_lock(home):
+                if path.exists() or (home / "session.json").exists():
+                    raise ValueError("Experimental state already exists; it was not overwritten.")
+                write_json(path, config.model_dump())
+            result = {"configured": True, "backend": "direct-wda", "state_directory": str(home),
+                      "port": config.port, "original_preserved": True, "phone_verified": False}
         else:
             home = state_home()
             with operation_lock(home):

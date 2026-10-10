@@ -123,11 +123,17 @@ async def bridge_command(home: Path, action: str) -> dict:
 
 
 class PhoneService:
-    def __init__(self, home: Path | None = None, controller=None, bridge=bridge_command,
-                 *, connect_wait_seconds: float = CONNECT_POLL_WAIT_SECONDS):
+    def __init__(self, home: Path | None = None, controller=None, bridge=None,
+                 *, connect_wait_seconds: float = CONNECT_POLL_WAIT_SECONDS, backend: str | None = None):
         self.home = home or state_home()
+        self.backend = backend or os.environ.get("IPHONE_USE_BACKEND", "appium")
+        if self.backend not in {"appium", "direct-wda"}:
+            raise ValueError("IPHONE_USE_BACKEND must be appium or direct-wda")
+        if controller is None and self.backend == "direct-wda":
+            from .direct_wda import DirectWDAController
+            controller = DirectWDAController(self.home)
         self.controller = controller or IPhoneController(self.home)
-        self.bridge = bridge
+        self.bridge = bridge or (self.direct_bridge if self.backend == "direct-wda" else bridge_command)
         self.owner = "codex-" + secrets.token_hex(16)
         self.token: str | None = None
         self.mutex = asyncio.Lock()
@@ -136,6 +142,33 @@ class PhoneService:
         self.connect_task: asyncio.Task[types.CallToolResult] | None = None
         self.connect_operation_id: str | None = None
         self.closing = False
+
+    async def direct_bridge(self, home: Path, action: str) -> dict:
+        if action == "stop":
+            return await self.controller.stop_runtime()
+        node = shutil.which("node")
+        if not node:
+            return {"ok": action == "status", "backend": "direct-wda", "running": False,
+                    "dependencies_ready": False, "phone_verified": False, "blockers": ["node_missing"]}
+        env = {key: os.environ[key] for key in ("HOME", "PATH", "TMPDIR", "LANG") if key in os.environ}
+        env["VICO_IPHONE_HOME"] = str(home)
+        process = await asyncio.create_subprocess_exec(
+            node, str(ROOT / "direct/runner.mjs"), "--check", cwd=ROOT, env=env,
+            stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.DEVNULL)
+        try:
+            output, _ = await asyncio.wait_for(process.communicate(), timeout=15)
+            check = json.loads(output) if len(output) <= 64 * 1024 else {}
+            if not isinstance(check, dict):
+                check = {}
+        except BaseException:
+            if process.returncode is None:
+                process.kill()
+                await process.wait()
+            raise
+        return {**check, **self.controller.runtime_status(), "ok": action == "status" or check.get("ok") is True,
+                "backend": "direct-wda", "phone_verified": False,
+                "note": "Host readiness only. iphone_session(connect) starts the owned wireless WDA runtime; Appium Server is not started."}
 
     def save_session(self, phase: str) -> None:
         write_json(self.journal, {"owner": self.owner, "pid": os.getpid(), "phase": phase,
@@ -261,6 +294,19 @@ class PhoneService:
                     raise PhoneError("The previous MCP session ended without cleanup. Inspect status, then stop the owned bridge before starting again; do not replay its last action.")
             value = await self.bridge(self.home, action)
             if action == "stop" and saved:
+                if self.backend == "direct-wda":
+                    # Stopping only a forwarder does not prove the phone session ended.
+                    # The direct controller clears ownership only after confirmed cleanup.
+                    if (saved.get("owner") == self.owner and self.controller.owner is None
+                            and not self.controller.uncertain and not value.get("needs_attention", True)):
+                        self.clear_journal()
+                        self.token = None
+                        self.forget_connection_operation()
+                    else:
+                        value["session_recovery_required"] = True
+                        value["needs_attention"] = True
+                        value["note"] = "The previous owner's remote cleanup has not been verified. Its session record is retained; stopping a new local runtime is not recovery proof."
+                    return result(value)
                 # The CLI verifies an owned stop or an already stopped, unoccupied endpoint.
                 if value.get("stopped") is True and value.get("running") is False:
                     if self.controller.clear_abandoned_lease_after_bridge_reset():
@@ -293,6 +339,9 @@ class PhoneService:
                                "next": "iphone_observe(mode=components) with this session_token"})
             self.require_token(args.get("session_token"))
             value = await self.controller.session(self.owner, "disconnect")
+            if self.backend == "direct-wda" and value.get("needs_attention"):
+                self.save_session("cleanup_pending")
+                return result({"ok": False, **value, "session_recovery_required": True}, error=True)
             self.clear_journal()
             self.token = None
             self.forget_connection_operation()
@@ -322,10 +371,10 @@ class PhoneService:
             except asyncio.CancelledError:
                 pass
         async with self.mutex:
-            if self.controller.owner == self.owner and not self.controller.uncertain:
+            if self.controller.owner == self.owner and (self.backend == "direct-wda" or not self.controller.uncertain):
                 try:
                     with operation_lock(self.home):
-                        await asyncio.wait_for(self.controller.finish(self.owner), timeout=15)
+                        await asyncio.wait_for(self.controller.finish(self.owner), timeout=30 if self.backend == "direct-wda" else 15)
                         if self.controller.owner is None:
                             self.clear_journal()
                 except (OSError, ValueError, RuntimeError, asyncio.TimeoutError):
@@ -342,11 +391,32 @@ def create_server(service: PhoneService) -> Server:
             with anyio.CancelScope(shield=True):
                 await service.close()
 
-    server = Server("iphone-use", version=__version__, instructions=INSTRUCTIONS, lifespan=lifespan)
+    direct = service.backend == "direct-wda"
+    instructions = INSTRUCTIONS
+    if direct:
+        instructions = instructions.replace("A running Appium\nbridge", "A prepared direct-WDA runtime")
+        instructions += ("\nThis is the experimental wireless direct-WDA backend. It uses no Appium Server. "
+                         "iphone_setup(start) only checks host readiness; iphone_session(connect) starts WDA. "
+                         "Never run the original phone plugin concurrently on the same device.\n")
+    server = Server("iphone-use-wireless-direct" if direct else "iphone-use", version=__version__,
+                    instructions=instructions, lifespan=lifespan)
 
     @server.list_tools()
     async def list_tools() -> list[types.Tool]:
-        return TOOLS
+        if not direct:
+            return TOOLS
+        tools = [tool.model_copy(deep=True) for tool in TOOLS]
+        for tool in tools:
+            tool.description = "[Wireless direct-WDA experiment] " + tool.description
+            if tool.name == "iphone_setup":
+                tool.description = ("[Wireless direct-WDA experiment] status/start check host dependencies and configuration only. "
+                                    "connect starts the owned WDA runtime over the existing wireless tunnel. stop cleans up only this runtime. "
+                                    "No Appium Server, installation, signing or tunnel creation.")
+            elif tool.name == "iphone_session":
+                tool.description = tool.description.replace(
+                    "Connect may build/start WDA using owner-configured signing.",
+                    "Connect starts an already installed, signed WDA over the configured wireless tunnel. It does not build or install WDA.")
+        return tools
 
     @server.call_tool()
     async def call_tool(name: str, arguments: dict) -> types.CallToolResult:

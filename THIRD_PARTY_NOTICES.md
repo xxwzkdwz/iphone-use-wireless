@@ -8,10 +8,11 @@ This independent release of iphone-use-wireless is distributed under the [MIT Li
 | --- | --- | --- |
 | [Appium](https://github.com/appium/appium) | Local WebDriver server | [Apache-2.0](https://github.com/appium/appium/blob/master/LICENSE) |
 | [Appium XCUITest Driver](https://github.com/appium/appium-xcuitest-driver) | iOS automation driver | [Apache-2.0](https://github.com/appium/appium-xcuitest-driver/blob/master/LICENSE) |
+| [Appium iOS RemoteXPC](https://github.com/appium/appium-ios-remotexpc) | Wireless service access, TCP forwarding, and runner process control for the direct-WDA experiment | [Apache-2.0](https://github.com/appium/appium-ios-remotexpc/blob/main/LICENSE) |
 | [WebDriverAgent](https://github.com/appium/WebDriverAgent) | Device-side XCTest automation | [BSD-3-Clause](https://github.com/appium/WebDriverAgent/blob/master/LICENSE) |
 | [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk) | MCP protocol implementation | [MIT](https://github.com/modelcontextprotocol/python-sdk/blob/main/LICENSE) |
 
-`bridge/package-lock.json` and `uv.lock` identify the resolved dependency graph. Transitive dependencies retain their own licenses and notices. This table lists key components; it is not an exhaustive license inventory of an installed environment.
+`bridge/package-lock.json`, `direct/package-lock.json`, and `uv.lock` identify the resolved dependency graphs. The optional direct-WDA experiment installs its own pinned `appium-ios-remotexpc` dependency under `direct/`; it uses that library and WebDriverAgent without running Appium Server or the XCUITest Driver. Transitive dependencies retain their own licenses and notices. This table lists key components; it is not an exhaustive license inventory of an installed environment.
 
 The source ZIP deliberately excludes `node_modules`, Python environments, compiled WebDriverAgent, and signing material. Dependencies are downloaded to the user's machine during setup. Preserve their included copyright, LICENSE, and NOTICE files. If distributing a separate installer or binary that embeds those dependencies, include the applicable upstream notices and license texts for every embedded component.
 
