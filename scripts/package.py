@@ -14,6 +14,7 @@ import zipfile
 
 
 ROOT = Path(__file__).resolve().parents[1]
+PNG_ASSETS = {"assets/iphone-use-wireless-hero.png"}
 REQUIRED_FILES = {
     ".agents/plugins/marketplace.json",
     ".codex-plugin/plugin.json",
@@ -60,7 +61,7 @@ REQUIRED_FILES = {
     "tests/test_setup_script.py",
     "tests/test_prepare_wda.py",
     "tests/tunnel-setup.test.mjs",
-}
+} | PNG_ASSETS
 REQUIRED_SOURCE = {"src/vico_iphone/__init__.py", "src/vico_iphone/cli.py", "src/vico_iphone/server.py"}
 FORBIDDEN_PARTS = {
     ".git", ".venv", "venv", "node_modules", "__pycache__", ".pytest_cache",
@@ -97,7 +98,10 @@ def collect_sources(root: Path) -> dict[str, bytes]:
         content = path.read_bytes()
         if len(content) > 5 * 1024 * 1024:
             raise ValueError(f"Unexpectedly large source file: {name}")
-        if b"\x00" in content:
+        if name in PNG_ASSETS:
+            if not content.startswith(b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"):
+                raise ValueError(f"Expected a PNG image: {name}")
+        elif b"\x00" in content:
             raise ValueError(f"Binary content is not allowed: {name}")
         for label, pattern in PRIVATE_MARKERS.items():
             if pattern.search(content):

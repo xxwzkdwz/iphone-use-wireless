@@ -6,13 +6,20 @@ Ask Codex to open apps, find information, enter text, tap, and swipe. After init
 
 [中文](README.md) · [Setup guide](docs/WIRELESS_SETUP.en.md)
 
+![Concept illustration of a Mac controlling an iPhone over Wi-Fi](assets/iphone-use-wireless-hero.png)
+
+<sub>Wireless control concept illustration</sub>
+
 ## What you can do
 
-- **Operate wirelessly**: connect to a paired iPhone through your Mac, without a data cable during everyday use.
-- **Read the screen**: inspect text and UI components, using screenshots when needed.
-- **Work inside apps**: launch apps, search, fill in text, tap controls, and scroll.
-- **Handle multiple steps**: describe a goal and let Codex observe, act, and check the result.
-- **Use your preferred client**: install the Codex plugin or connect through standard MCP.
+- **Operate over local Wi-Fi**: after initial pairing and setup, connect through your Mac and unplug the data cable for everyday use.
+- **Read the screen**: inspect text and UI controls first, use screenshots when needed, then tap, type, or swipe.
+- **Open and switch apps**: open apps on your phone, move between them, or return to the Home Screen.
+- **Search and summarize**: search inside apps, open details, and turn information visible on the current page into a list or summary.
+- **Fill in and write**: use the text you provide to complete forms, write lists in Notes, or draft text in an input field.
+- **Handle continuous tasks**: work through multiple pages, switch apps when needed, and check the result after each step.
+- **Check app flows**: walk through searches, forms, and other screen flows on a real phone, observing button responses and page changes.
+- **Use your preferred client**: connect through the Codex plugin or another MCP client, with no separate model API key required for this plugin.
 
 ## Get started
 
@@ -61,9 +68,11 @@ Choose either plugin installation or direct MCP registration; use `bash scripts/
 
 > Connect to my phone with iphone-use-wireless and tell me which screen is open.
 
-> Search for nearby coffee shops in Maps and summarize a few places shown on the screen.
+> Search for nearby coffee shops in Maps, make a list of three places shown on the screen, and write it in Notes.
 
-> Open Notes and write a packing list for a weekend trip.
+> Fill in the current form using the information I provide, and stop before submitting so I can review it.
+
+> Walk through “search → view details → return to the list” in this app and describe how the screen changes at each step.
 
 Keep the Mac awake, the phone unlocked on the same reachable network, and the foreground wireless tunnel running. Then give Codex a task; ask it to disconnect the phone session when finished.
 
