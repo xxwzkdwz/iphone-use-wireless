@@ -1,11 +1,11 @@
 ---
 name: iphone
-description: Operate an owner-authorized iPhone through iphone use MCP tools, including wireless use after initial USB pairing and signing. Use for observing the UI, opening an app, tapping, typing, swiping, or returning home with component-first targeting and session ownership.
+description: Operate an owner-authorized iPhone through iphone-use-wireless MCP tools, including wireless use after initial USB pairing and signing. Use for observing the UI, opening an app, tapping, typing, swiping, or returning home with component-first targeting and session ownership.
 ---
 
 # Operate the iPhone
 
-Use the iphone use MCP tools exposed by this plugin. Codex is the decision-maker; do not launch a separate autonomous model or depend on VICO Core.
+Use the iphone-use-wireless MCP tools exposed by this plugin. Codex is the decision-maker; do not launch a separate autonomous model or depend on VICO Core.
 
 ## Start with the owner's task
 

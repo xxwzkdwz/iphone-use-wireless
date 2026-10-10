@@ -1,6 +1,6 @@
 # Third-party notices
 
-This independent release of iphone use is distributed under the [MIT License](LICENSE). Its phone-control implementation was extracted from the author's VICO project; compatibility state paths are retained. This release does not change the license of the original VICO application, dependencies, Apple software, or the Codex host.
+This independent release of iphone-use-wireless is distributed under the [MIT License](LICENSE). Its phone-control implementation was extracted from the author's VICO project; compatibility state paths are retained. This release does not change the license of the original VICO application, dependencies, Apple software, or the Codex host.
 
 ## Runtime dependencies
 

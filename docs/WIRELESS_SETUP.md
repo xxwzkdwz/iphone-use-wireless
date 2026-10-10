@@ -1,4 +1,4 @@
-# 从零设置 iphone use 无线控制
+# 从零设置 iphone-use-wireless
 
 [返回 README](../README.md) · [English](WIRELESS_SETUP.en.md)
 
@@ -11,8 +11,8 @@
 安装完整 Xcode，启动一次并完成组件安装。在 Xcode 的 **Settings → Locations → Command Line Tools** 中选中该 Xcode。准备 Python 3.11+、[uv](https://docs.astral.sh/uv/getting-started/installation/)、[Node.js](https://nodejs.org/en/download) 和 npm 10+。本项目支持的 Node.js 范围是 `^20.19.0 || ^22.12.0 || >=24.0.0`。
 
 ```sh
-git clone https://github.com/xxwzkdwz/iphone-use.git
-cd iphone-use
+git clone https://github.com/xxwzkdwz/iphone-use-wireless.git
+cd iphone-use-wireless
 uv sync --frozen
 node scripts/install-bridge.mjs --json
 uv run --frozen iphone-use doctor
@@ -141,7 +141,7 @@ uv run --frozen iphone-use doctor
 
 `--preinstalled-wda` 启用预安装启动路径。提供 `--prebuilt-wda-path` 时，Appium 会从这个签名包安装 WDA；该文件必须一直存在于稳定的绝对路径。若正确的 WDA 已装到手机上，可省略路径，但 bundle ID 必须仍匹配。
 
-私有配置位于 `~/.local/share/vico-iphone/configuration/iphone-control.json`；`VICO_IPHONE_HOME` 可更改私有目录。改名为 iphone use 后保留这些路径和环境变量以兼容已有安装。端口默认是 `127.0.0.1:4737`。`doctor` 是主机检查，不会替你完成手机连接验收。
+私有配置位于 `~/.local/share/vico-iphone/configuration/iphone-control.json`；`VICO_IPHONE_HOME` 可更改私有目录。改名为 iphone-use-wireless 后保留这些路径和环境变量以兼容已有安装。端口默认是 `127.0.0.1:4737`。`doctor` 是主机检查，不会替你完成手机连接验收。
 
 ## 5. 安装 Codex 插件并准备实际运行副本
 
@@ -151,7 +151,7 @@ bash scripts/install-codex.sh
 
 打开新的 Codex 聊天，必要时重启桌面客户端。让 Codex 执行：
 
-> 使用 iphone use 的 setup 技能，定位当前实际加载的插件目录，检查并安装该副本缺少的依赖。保留我已有的设备配置，先不要操作手机。
+> 使用 iphone-use-wireless 的 setup 技能，定位当前实际加载的插件目录，检查并安装该副本缺少的依赖。保留我已有的设备配置，先不要操作手机。
 
 **这一步不能省略。** Codex 通常从缓存副本运行插件，仓库里的 `.venv` 和 `bridge/node_modules` 不保证出现在副本中。setup 应从当前加载的 `skills/setup/SKILL.md` 推导插件根目录，在该目录运行：
 
@@ -231,7 +231,7 @@ curl --fail --silent --show-error http://127.0.0.1:42314/remotexpc/tunnels
 
 对 Codex 说：
 
-> 使用 iphone use 连接我的手机。现在 USB 已拔掉，请先检查无线隧道，再读取当前界面组件，完成后告诉我连接和读取是否成功。
+> 使用 iphone-use-wireless 连接我的手机。现在 USB 已拔掉，请先检查无线隧道，再读取当前界面组件，完成后告诉我连接和读取是否成功。
 
 工具顺序如下，通常由 Codex 自动执行：
 

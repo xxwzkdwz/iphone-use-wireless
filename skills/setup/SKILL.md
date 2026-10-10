@@ -1,11 +1,11 @@
 ---
 name: setup
-description: Set up or diagnose iphone use on a Mac, including USB pairing, owner Apple signing, prepared WDA, a foreground RemoteXPC tunnel, wireless operation after unplugging, and Codex cache dependencies. Use for initial setup or connection failures.
+description: Set up or diagnose iphone-use-wireless on a Mac, including USB pairing, owner Apple signing, prepared WDA, a foreground RemoteXPC tunnel, wireless operation after unplugging, and Codex cache dependencies. Use for initial setup or connection failures.
 ---
 
-# iphone use setup
+# iphone-use-wireless setup
 
-iphone use is an independent local stdio MCP server. Codex decides which actions to take; this package has no VICO Core or DeepSeek dependency. Read the repository `README.md` for commands. Resolve script paths from this skill's plugin root, two directories above this file's directory.
+iphone-use-wireless is an independent local stdio MCP server. Codex decides which actions to take; this package has no VICO Core or DeepSeek dependency. Read the repository `README.md` for commands. Resolve script paths from this skill's plugin root, two directories above this file's directory.
 
 For first setup or wireless recovery, read the packaged [wireless setup guide](../../docs/WIRELESS_SETUP.md), or its [English version](../../docs/WIRELESS_SETUP.en.md). Follow its complete sequence: dependencies, USB trust/pairing and Developer Mode, owner signing, prepared WDA copy, configuration, actual installed runtime, foreground tunnel, and unplugged acceptance. Do not skip signing or assume an old VICO tunnel service exists.
 

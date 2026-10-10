@@ -1,4 +1,4 @@
-# Set up wireless iphone use from scratch
+# Set up iphone-use-wireless from scratch
 
 [Back to README](../README.en.md) · [中文](WIRELESS_SETUP.md)
 
@@ -11,8 +11,8 @@ Maintainers verified an unplugged session on iPhone 16 / iOS 26.6.1 / Xcode 26.6
 Install full Xcode, launch it once, and complete component installation. Select it under **Xcode Settings → Locations → Command Line Tools**. Install Python 3.11+, [uv](https://docs.astral.sh/uv/getting-started/installation/), [Node.js](https://nodejs.org/en/download), and npm 10+. Supported Node.js versions are `^20.19.0 || ^22.12.0 || >=24.0.0`.
 
 ```sh
-git clone https://github.com/xxwzkdwz/iphone-use.git
-cd iphone-use
+git clone https://github.com/xxwzkdwz/iphone-use-wireless.git
+cd iphone-use-wireless
 uv sync --frozen
 node scripts/install-bridge.mjs --json
 uv run --frozen iphone-use doctor
@@ -146,7 +146,7 @@ bash scripts/install-codex.sh
 
 Open a new Codex chat; restart the desktop client if necessary. Ask:
 
-> Use the iphone use setup skill to find the actual loaded plugin directory and install missing dependencies there. Preserve my existing device configuration and do not operate the phone yet.
+> Use the iphone-use-wireless setup skill to find the actual loaded plugin directory and install missing dependencies there. Preserve my existing device configuration and do not operate the phone yet.
 
 Codex may run a cached copy. Dependencies in the source checkout do not prove that copy is ready. Setup must resolve its root from the loaded `skills/setup/SKILL.md` and run these commands there:
 
@@ -221,7 +221,7 @@ Registry output can contain UDIDs and local addresses; keep it local. Confirm th
 
 Ask Codex:
 
-> Use iphone use to connect my phone. USB is unplugged. Check the wireless tunnel, read the current UI components, and report whether both connection and observation succeeded.
+> Use iphone-use-wireless to connect my phone. USB is unplugged. Check the wireless tunnel, read the current UI components, and report whether both connection and observation succeeded.
 
 Codex should check `iphone_status` and `iphone_setup(action="status")`, start the bridge if required, and call `iphone_session(action="connect")`. A pending connection returns an `operation_id`; poll `connect_status` for the same operation rather than reconnecting.
 

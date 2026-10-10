@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.1 — Wireless name
+
+- Display name: **iphone-use-wireless**.
+- GitHub repository: **xxwzkdwz/iphone-use-wireless**; installation links and guides updated.
+- Existing plugin, marketplace, MCP and CLI identifiers remain compatible.
+
 ## 0.1.0 — First public preview
 
 - Independent Codex plugin named **iphone use**, extracted from VICO's phone-control implementation.

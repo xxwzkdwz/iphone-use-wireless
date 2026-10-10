@@ -35,8 +35,8 @@ if [[ "$register_only" == false ]]; then
   if codex plugin add --help >/dev/null 2>&1; then
     codex plugin add iphone-use@iphone-use-local
   else
-    printf '%s\n' 'Marketplace registered. This Codex CLI lacks plugin add; install iphone use from the local marketplace in the desktop app.' >&2
+    printf '%s\n' 'Marketplace registered. This Codex CLI lacks plugin add; install iphone-use-wireless from the local marketplace in the desktop app.' >&2
   fi
 fi
-printf '%s\n' 'Open a new Codex chat after installation. Run the iphone use setup skill before connecting a phone.'
+printf '%s\n' 'Open a new Codex chat after installation. Run the iphone-use-wireless setup skill before connecting a phone.'
 printf '%s\n' 'The host may run a cached plugin copy. Setup must check and install dependencies in that actual plugin directory.'
