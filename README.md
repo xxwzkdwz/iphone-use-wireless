@@ -1,7 +1,5 @@
 # iphone-use-wireless
 
-> 此分支额外提供[无线直连 WDA 实验版](docs/DIRECT_WDA_EXPERIMENT.md)，可与原版并行安装、分别试用。
-
 **通过 Wi-Fi，让 Codex 在你的 iPhone 上完成任务。**
 
 打开 App、查找页面内容、输入文字、点击和滑动，都可以直接告诉 Codex。首次完成 USB 配对、签名和隧道设置后，拔掉数据线，在手机与 Mac 所在的同一网络中无线使用。
@@ -30,7 +28,7 @@
 项目地址：https://github.com/xxwzkdwz/iphone-use-wireless
 
 请按仓库指南先检查环境，协助准备缺少的软件并运行 setup.sh，
-再完成手机配对、WDA 配置和无线隧道设置；已有配置优先复用。
+再完成手机配对、WDA 构建与安装、设备配置和无线隧道设置；已有配置优先复用。
 需要我登录 Apple 账户、插拔数据线、信任电脑、开启开发者模式
 或输入密码时，告诉我如何在本机操作。最后拔掉 USB，连接并读取当前页面。
 ```
@@ -49,9 +47,9 @@ bash scripts/setup.sh --check
 bash scripts/setup.sh
 ```
 
-`--check` 检查准备情况；缺少系统软件时先按提示补齐，仅缺插件依赖时运行 `setup.sh` 安装。安装需要完整 Xcode、uv（准备 Python 3.11+ 环境）、Node.js 22.12+（22.x）或 24+、npm 10+ 和 Codex CLI。`setup.sh` 安装插件运行依赖并注册插件，保留设备配置，不连接手机。
+`--check` 检查准备情况；缺少系统软件时先按提示补齐，仅缺插件依赖时运行 `setup.sh` 安装。安装需要完整 Xcode、uv（准备 Python 3.11+ 环境）、Node.js（推荐 22.12+ 的 22.x 或 24+）、npm 10+ 和 Codex CLI。`setup.sh` 安装插件运行依赖并注册插件，保留设备配置，不连接手机。
 
-接着按[指南](docs/WIRELESS_SETUP.md)完成签名、配置与无线隧道。安装后新开聊天，运行 `setup` 技能检查实际插件目录。内部安装标识仍为 `iphone-use`。
+默认直接连接手机上的 WDA，无需运行 Appium Server。接着按[指南](docs/WIRELESS_SETUP.md)完成签名、安装 WDA、配置与无线隧道。安装后新开聊天，运行 `setup` 技能检查实际插件目录。内部安装标识仍为 `iphone-use`。
 
 其他 MCP 客户端可用 `bash` 启动本项目 `scripts/run-server.sh`。在 Codex CLI 中直接注册的命令是：
 
@@ -75,4 +73,4 @@ codex mcp add iphone_use -- bash '/absolute/path/to/iphone-use-wireless/scripts/
 
 ## 更多
 
-[完整配置与常见问题](docs/WIRELESS_SETUP.md) · [更新记录](CHANGELOG.md) · [MIT License](LICENSE) · [第三方说明](THIRD_PARTY_NOTICES.md)
+[完整配置与常见问题](docs/WIRELESS_SETUP.md) · [旧版升级](docs/DIRECT_WDA_EXPERIMENT.md) · [更新记录](CHANGELOG.md) · [MIT License](LICENSE) · [第三方说明](THIRD_PARTY_NOTICES.md)

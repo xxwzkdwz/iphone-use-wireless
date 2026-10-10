@@ -2,9 +2,11 @@
 
 [返回 README](../README.md) · [English](WIRELESS_SETUP.en.md)
 
-首次完成 USB 配对和自己的 Apple 签名后，可以拔掉数据线，通过同网络的 Mac 操作 iPhone。本指南使用 **预安装 WDA + CoreDevice / RemoteXPC**，要求 iOS 18+。无线使用时，Mac 运行 Codex、Appium 和前台隧道，并保持唤醒；手机保持解锁、网络可达。
+首次完成 USB 配对和自己的 Apple 签名后，可以拔掉数据线，通过同网络的 Mac 操作 iPhone。默认使用 **直连 WDA + CoreDevice / RemoteXPC**，要求 iOS 18+。Mac 运行 Codex、本插件和前台隧道，直接连接手机上预先安装的 WDA；不运行 Appium Server 或 XCUITest Driver。底层仍使用 Apple XCTest、WebDriverAgent 和 `appium-ios-remotexpc` 无线库。Mac 保持唤醒，手机保持解锁、网络可达。
 
 你可以把本指南交给本机 Codex，让它检查环境、协助准备软件、执行安装与配置命令。你需要提供 Mac、iPhone 和首次配对用的数据线，并亲自完成 Apple 登录、手机信任与开发者模式确认，以及必要的密码输入。Xcode 是运行要求，可以在设置过程中准备，不需要事先手工完成所有软件配置。
+
+已经使用旧版 Appium 后端的用户，先看[升级与兼容说明](DIRECT_WDA_EXPERIMENT.md)；已配置过直连版的用户直接复用现有配置。
 
 ## 1. 获取代码并准备软件
 
@@ -19,7 +21,7 @@ bash scripts/setup.sh --check
 `--check` 只读检查系统软件和当前目录中的插件依赖，不安装、不改设备配置、不连接手机。新克隆目录缺少插件依赖是正常的；若缺少系统软件，先按报告的下一步处理：
 
 - **完整 Xcode**：Codex 可检查已有安装并引导下载安装。启动 Xcode 一次，完成组件安装，在 **Settings → Locations → Command Line Tools** 中选中它。需要同意许可或输入管理员密码时，由你在本机完成。
-- **运行工具**：[uv](https://docs.astral.sh/uv/getting-started/installation/)、[Node.js](https://nodejs.org/en/download) 和 npm 10+；uv 会准备项目需要的 Python 3.11+ 环境。Node.js 支持 `^20.19.0 || ^22.12.0 || >=24.0.0`。Codex 可协助安装与检查这些工具。
+- **运行工具**：[uv](https://docs.astral.sh/uv/getting-started/installation/)、[Node.js](https://nodejs.org/en/download) 和 npm 10+；uv 会准备项目需要的 Python 3.11+ 环境。推荐 Node.js 22.12+（22.x）或 24+；也支持 20.19+（20.x），不支持 21.x 或 23.x。Codex 可协助安装与检查这些工具。
 - **Codex CLI**：终端可以运行 `codex`。使用其他 MCP 客户端时可选 `--skip-plugin`，无需为此安装 Codex CLI。
 
 系统软件就绪后运行：
@@ -28,7 +30,7 @@ bash scripts/setup.sh --check
 bash scripts/setup.sh
 ```
 
-脚本安装锁定的 Python 与桥接依赖，检查运行环境并注册 Codex 插件；保留已有设备配置，不连接或操作手机。它不代装 Xcode、Node.js 等系统软件，缺失时会报告下一步并退出。`bash scripts/setup.sh --skip-plugin` 只准备当前目录的运行依赖，跳过插件注册。
+脚本安装锁定的 Python 与 `direct/` 直连依赖，检查运行环境并注册 Codex 插件；保留已有设备配置，不连接或操作手机。它不代装 Xcode、Node.js 等系统软件，缺失时会报告下一步并退出。`bash scripts/setup.sh --skip-plugin` 只准备当前目录的运行依赖，跳过插件注册。
 
 以下命令均从仓库根目录运行，除非明确指出使用 Codex 安装副本。真实设备配置、截图和签名材料保存在本机私有目录，不放进仓库。
 
@@ -49,10 +51,10 @@ bash scripts/setup.sh
 
 WDA 是安装到手机上的测试辅助 App。它使用你自己的 Apple 签名；无需购买第三方签名，也不要复用别人的签名包、证书或设备配置。可以使用 Xcode 的免费 Personal Team，相关签名到期处理见第 8 步。
 
-打开已安装依赖中的 Xcode 工程：
+默认安装的独立 WDA 依赖锁定为 `appium-webdriveragent 16.12.5`。打开其中的 Xcode 工程：
 
 ```sh
-open bridge/node_modules/appium-xcuitest-driver/node_modules/appium-webdriveragent/WebDriverAgent.xcodeproj
+open direct/node_modules/appium-webdriveragent/WebDriverAgent.xcodeproj
 ```
 
 在 Xcode 中完成以下设置，Codex 可协助定位和处理构建错误：
@@ -85,11 +87,23 @@ uv run --frozen python scripts/prepare-wda.py \
 
 脚本要求原件已经签名且验证通过。它复制到新的私有目录，只移除副本中嵌入的 `XC*` 框架，重签嵌套 XCTest bundle 和外层 App，并检查签名；原件和设备配置保持不变。这遵循 Appium 的[预安装 WDA 要求](https://appium.github.io/appium-xcuitest-driver/latest/guides/run-preinstalled-wda/)。
 
-成功输出中的 `prepared_path` 是下一步所需的 `.app` 绝对路径。默认保存在 `${VICO_IPHONE_HOME:-~/.local/share/vico-iphone}/wda` 下的新目录；可用 `--output-root '/absolute/private/wda'` 指定位置。签名失败时脚本停止并清理本次未完成副本。此步骤不安装到手机，也不证明手机连接成功。
+成功输出中的 `prepared_path` 是下面安装命令所需的 `.app` 绝对路径。默认保存在 `~/.local/share/iphone-use-wireless-direct/wda` 下的新目录，设置 `VICO_IPHONE_HOME` 时则使用该目录下的 `wda/`；可用 `--output-root '/absolute/private/wda'` 指定位置。签名失败时脚本停止并清理本次未完成副本。此步骤仅生成签名包。
+
+### 把准备好的副本安装到手机
+
+保持 USB 连接、手机解锁，并确认 Xcode 的测试已经停止。将设备 ID 和刚才输出的 `prepared_path` 代入：
+
+```sh
+xcrun devicectl device install app \
+  --device '<DEVICE_UDID>' \
+  '/absolute/path/from/prepared_path/WebDriverAgentRunner-Runner.app'
+```
+
+按手机提示完成开发者信任；如提示重启，重启后解锁。默认直连的 `connect` 只启动手机上已安装的 WDA，**不会替你安装或重签**。签名到期后也需要重新构建、准备并安装。安装成功之后继续配置和无线连接。
 
 ## 4. 保存设备配置
 
-已有可用配置时先检查并复用，无需因安装或更新重新配置。首次设置用本机实际值替换占位符，`.app` 路径取上一步的 `prepared_path`：
+已有直连配置时先检查并复用。旧版配置按[升级说明](DIRECT_WDA_EXPERIMENT.md)迁移；首次设置用本机实际值替换占位符：
 
 ```sh
 uv run --frozen iphone-use configure \
@@ -98,14 +112,13 @@ uv run --frozen iphone-use configure \
   --platform-version '<IOS_VERSION>' \
   --transport coredevice \
   --wda-bundle-id '<YOUR_WDA_BUNDLE_ID>' \
-  --preinstalled-wda \
-  --prebuilt-wda-path '/absolute/path/to/prepared/WebDriverAgentRunner-Runner.app'
+  --preinstalled-wda
 uv run --frozen iphone-use doctor
 ```
 
-`--preinstalled-wda` 选择预安装启动方式。提供 `--prebuilt-wda-path` 时，Appium 会在连接时从这个签名包安装 WDA；请保留该文件。若匹配的 WDA 已正确安装，可省略路径。`doctor` 检查主机与配置，手机连接在第 7 步完成。
+直连模式使用 `coredevice` 和预安装 WDA；默认已经选择这两项，命令中显式列出便于核对。不要传 `--prebuilt-wda-path`，安装应在第 3 步单独完成。保留签名副本以便重新安装。`doctor` 检查主机与配置，手机连接在第 7 步完成。
 
-私有配置为 `~/.local/share/vico-iphone/configuration/iphone-control.json`，可用 `VICO_IPHONE_HOME` 更改目录。兼容路径和内部 CLI 名称 `iphone-use` 保持不变；Appium 默认监听 `127.0.0.1:4737`。
+默认私有配置为 `~/.local/share/iphone-use-wireless-direct/configuration/iphone-control.json`，本机 WDA 转发端口为 `127.0.0.1:18401`。`VICO_IPHONE_HOME` 优先于默认目录；CLI 名称仍为 `iphone-use`。旧 Appium 后端需要显式选择，见[兼容说明](DIRECT_WDA_EXPERIMENT.md)。
 
 ## 5. 准备 Codex 实际运行副本
 
@@ -155,9 +168,11 @@ node scripts/tunnel-diagnostics.mjs --json
 
 > 使用 iphone-use-wireless 连接我的手机。USB 已拔掉，请检查无线隧道、读取当前界面组件，并告诉我是否连接成功。
 
-Codex 检查状态，按需启动桥接，再建立设备会话。连接若返回 pending 和 `operation_id`，用 `connect_status` 查询同一操作，不重复发起 connect。成功后使用该会话的 `session_token` 读取当前组件，再执行你的任务。
+Codex 检查状态，再建立设备会话。默认模式下，`iphone_setup(start)` 只检查本机依赖；`iphone_session(connect)` 才会启动已安装的 WDA 和本机转发，不启动 Appium 服务。连接若返回 pending 和 `operation_id`，用 `connect_status` 查询同一操作，不重复发起 connect。成功后使用该会话的 `session_token` 读取当前组件，再执行你的任务。
 
 每次动作后重新观察确认结果；组件不可用或经过有意义的再次尝试仍无法定位时，再使用截图。结果不明确时先核对状态，不重复发送、点击或购买来试探。任务完成后可断开自己的会话。
+
+一次会话内会缓存屏幕尺寸；旋转手机后先断开并重新连接，再使用坐标操作。
 
 日常顺序是：手机解锁与同网络 → 保持 Mac 唤醒 → 运行 `node scripts/start-tunnel.mjs` → 让 Codex 连接并操作。隧道需持续运行；休眠、重启、换网或签名过期后按下一节恢复。
 
@@ -170,17 +185,17 @@ Codex 检查状态，按需启动桥接，再建立设备会话。连接若返�
 | 有线可用，拔线后断开 | 结束自己的有线会话和旧隧道，拔线后重新运行 `start-tunnel.mjs`，确认 Network 登记。 |
 | Mac 休眠或换网后失联 | 唤醒 Mac、解锁手机，检查网络并重新启动自己的失效隧道。 |
 | RemoteXPC unavailable | 运行 `start-tunnel.mjs --check --json`，按返回的下一步处理；诊断不会自动创建隧道。 |
-| 42314 或 4737 已占用 | 查明服务所属任务，协调使用；不要批量终止服务。 |
+| 42314 或 18401 已占用 | 查明服务所属任务，协调使用；不要批量终止服务。 |
 | 隧道登记权限错误 | 先看诊断输出，再按下方方法核对自己的 Strongbox 路径。 |
-| WDA 签名或启动失败 | 核对 Developer Mode、团队、基础 bundle ID 和 provisioning；修复 Xcode 构建后重新运行 `prepare-wda.py`。 |
-| 免费账户几天后不能运行 | Personal Team 的设备安装 profile 七天到期。重新构建并准备 WDA，更新配置中的副本路径。参见 [Apple 说明](https://developer.apple.com/help/account/basics/about-your-developer-account)。 |
-| `.app` 路径失效 | 结束自己的会话，用第 4 步 configure 更新为真实稳定的路径，不直接改 JSON 绕过校验。 |
+| WDA 签名或启动失败 | 核对 Developer Mode、团队、基础 bundle ID 和 provisioning；修复 Xcode 构建后重新运行 `prepare-wda.py`，再用第 3 步命令安装。 |
+| 免费账户几天后不能运行 | Personal Team 的设备安装 profile 七天到期。重新构建、准备并安装 WDA；团队或 bundle ID 变更时再更新配置。参见 [Apple 说明](https://developer.apple.com/help/account/basics/about-your-developer-account)。 |
+| WDA 未安装或安装的 bundle ID 不匹配 | 结束自己的会话，按第 3 步安装准备好的包，核对第 4 步的基础 bundle ID。 |
 | 插件更新后缺依赖 | 在当前加载副本运行 `bash scripts/setup.sh --skip-plugin`，不要沿用旧缓存路径。 |
 | 控件位置变动或动作结果不明 | 重新观察和检查状态；不重放不确定动作，不删除会话锁。 |
 
 重新配置或升级依赖前，先结束自己的设备会话和使用该目录的隧道。保留私有配置与签名副本；不要让多个控制器同时操作同一手机。
 
-隧道启动失败时，可在本机查看终端提示的私有日志：`$VICO_IPHONE_HOME/logs/tunnel.log`，默认 `~/.local/share/vico-iphone/logs/tunnel.log`。原始日志可能包含设备 ID 等信息，不要原样贴到公开 Issue 或文档。
+隧道启动失败时，可在本机查看终端提示的私有日志：`$VICO_IPHONE_HOME/logs/tunnel.log`，默认 `~/.local/share/iphone-use-wireless-direct/logs/tunnel.log`。原始日志可能包含设备 ID 等信息，不要原样贴到公开 Issue 或文档。
 
 ### 进阶：自己的 Strongbox 权限
 

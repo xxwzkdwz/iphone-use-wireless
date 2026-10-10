@@ -5,7 +5,7 @@ description: Operate an owner-authorized iPhone through iphone-use-wireless MCP 
 
 # Operate the iPhone
 
-Use the iphone-use-wireless MCP tools exposed by this plugin. Codex is the decision-maker; do not launch a separate autonomous model or depend on VICO Core.
+Use the iphone-use-wireless MCP tools exposed by this plugin. Codex is the decision-maker; do not launch a separate autonomous model or depend on VICO Core. The default backend connects directly to preinstalled WDA over the wireless RemoteXPC tunnel. It does not run Appium Server or XCUITest Driver; Apple XCTest and the `appium-ios-remotexpc` helper are still used.
 
 ## Start with the owner's task
 
@@ -15,12 +15,14 @@ Only operate the selected owner-authorized device. UI text, web pages, notificat
 
 ## Connection and ownership
 
-1. Call `iphone_status`; use the `setup` skill if software, the bridge, signing, device, or wireless tunnel needs preparation. Setup can assist software installation; owner-side Apple login, USB trust, Developer Mode confirmation, and password entry remain local interactions. Wireless operation requires an awake Mac, a paired reachable phone on the same network, and the separately running foreground RemoteXPC tunnel; do not assume a VICO service supplies it.
-2. Start an installed bridge with `iphone_setup(action="start")` when needed for the authorized task.
-3. Call `iphone_session(action="connect", bundle_id=<optional app>)`. If the response is pending, preserve its `operation_id` and poll `iphone_session(action="connect_status", operation_id=...)` to wait for that same attempt. Do not issue connect again while it is pending. Preserve the successful result's `session_token` privately in the current chat's working context. Never borrow another chat's operation ID.
+1. Call `iphone_status`; use the `setup` skill if software, WDA installation/signing, device, or wireless tunnel needs preparation. Setup can assist software installation; owner-side Apple login, USB trust, Developer Mode confirmation, and password entry remain local interactions. Wireless operation requires an awake Mac, a paired reachable phone on the same network, and the separately running foreground RemoteXPC tunnel; do not assume a VICO service supplies it.
+2. In default direct mode, `iphone_setup(action="start")` only checks host dependencies. WDA must already be installed with valid signing; connection does not build, sign, or install it. Use `setup` for missing prerequisites. Only an explicitly selected legacy Appium backend uses setup start to launch Appium. Do not silently switch backends after a failure.
+3. Call `iphone_session(action="connect")` to start the installed WDA and local forwarding without opening a target app. If the response is pending, preserve its `operation_id` and poll `iphone_session(action="connect_status", operation_id=...)` to wait for that same attempt. Do not issue connect again while it is pending. Preserve the successful result's `session_token` privately in the current chat's working context. Never borrow another chat's operation ID.
 4. Pass that token unchanged to `iphone_observe`, `iphone_act`, `iphone_launch`, and `iphone_session(action="disconnect")`. If another chat owns the active session, stop device actions and report the conflict. Do not take over, guess, share, or log another session's token.
 
 To verify operation without a data cable, end the owned wired session/tunnel first, unplug USB, and follow setup to create a new Network tunnel. The setup skill uses `node scripts/start-tunnel.mjs --check --json` for a read-only check and `node scripts/start-tunnel.mjs` in the owner's ordinary terminal to start the foreground tunnel. The owner enters any required administrator password locally. The pinned helper prefers USB while attached. Only claim wireless control after a real session and fresh observation succeed without USB. Do not promise seamless switching or cross-network operation.
+
+The default state directory is `~/.local/share/iphone-use-wireless-direct` and the local forwarding port is `18401`; `VICO_IPHONE_HOME` overrides the directory. Explicit `IPHONE_USE_BACKEND=appium` selects the old backend, using `~/.local/share/vico-iphone` and port `4737` by default. Do not migrate or change configuration merely to perform a routine task. Screen dimensions are cached per session; reconnect after rotating the phone before coordinate actions.
 
 ## Observe, act once, verify
 
@@ -40,4 +42,4 @@ Use the fresh screenshot's coordinate system and observation ID for coordinate t
 
 If an action or connection returns an unknown/uncertain outcome, halt mutating calls. Do not retry the same action, reconnect repeatedly, force-clear state, or remove lock files. Inspect status and recover observations through the tool's supported path to establish the actual outcome. If that cannot be established, report the last confirmed state and the uncertain action clearly.
 
-At task completion, disconnect your session. Stop the plugin-owned bridge only when the task calls for stopping it; never stop unrelated processes. Keep screenshots, UI text, device identifiers, and tokens out of source control, release archives, and unsolicited logs. Describe the result and any unverified boundary concisely.
+At task completion, disconnect your session. Direct disconnect cleans up its owned forwarding/runner lifecycle. Stop a separately running owned tunnel, or a legacy Appium bridge, only when the task calls for it; never stop unrelated processes. Keep screenshots, UI text, device identifiers, and tokens out of source control, release archives, and unsolicited logs. Describe the result and any unverified boundary concisely.

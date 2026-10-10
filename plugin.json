@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "iphone-use",
-  "version": "0.1.2",
-  "description": "Wireless iPhone control for Codex through a Mac: unplug the USB cable after pairing and setup.",
+  "version": "0.2.0",
+  "description": "Wireless iPhone control for Codex with a direct WebDriverAgent connection; no Appium Server required.",
   "author": {
     "name": "xxwzkdwz"
   },
@@ -12,17 +12,17 @@
     "ios",
     "wireless",
     "codex",
-    "appium",
     "xcuitest",
-    "mcp"
+    "mcp",
+    "webdriveragent"
   ],
   "extensions": {
     "com.openai": {
       "onboardingSkill": "./skills/setup/SKILL.md",
       "interface": {
         "displayName": "iphone-use-wireless",
-        "shortDescription": "Control your iPhone over Wi-Fi after initial pairing.",
-        "longDescription": "Operate a real iPhone wirelessly from Codex using your Mac and a prepared RemoteXPC tunnel. Complete initial pairing and signing with your own Apple account, then unplug USB and use components first. Requires macOS, Xcode, a reachable paired iPhone, and a valid WDA signature; no cross-network relay is included.",
+        "shortDescription": "Control your iPhone over Wi-Fi with direct WDA.",
+        "longDescription": "Operate a real iPhone wirelessly from Codex through a direct WebDriverAgent connection. Pair and sign once with your own Apple account, then unplug USB. Requires a Mac, Xcode, a prepared wireless tunnel, and an unlocked iPhone on the same reachable network. No Appium Server or separate model API key is required.",
         "developerName": "xxwzkdwz",
         "category": "Productivity",
         "capabilities": [

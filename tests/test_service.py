@@ -69,7 +69,7 @@ def data(result):
 
 @pytest.fixture
 def service(tmp_path):
-    return PhoneService(tmp_path, Controller(), bridge)
+    return PhoneService(tmp_path, Controller(), bridge, backend="appium")
 
 
 async def connect(service):
@@ -132,7 +132,7 @@ async def test_unknown_action_not_replayed_and_journal_retained(service):
 
 async def test_second_process_cannot_take_over_or_stop(service):
     await connect(service)
-    other = PhoneService(service.home, Controller(), bridge)
+    other = PhoneService(service.home, Controller(), bridge, backend="appium")
     assert (await other.call("iphone_session", {"action": "connect"})).isError
     assert (await other.call("iphone_setup", {"action": "stop"})).isError
 
@@ -213,7 +213,7 @@ class SlowController(Controller):
 
 @pytest.fixture
 def slow_service(tmp_path):
-    return PhoneService(tmp_path, SlowController(), bridge, connect_wait_seconds=0.001)
+    return PhoneService(tmp_path, SlowController(), bridge, connect_wait_seconds=0.001, backend="appium")
 
 
 async def pending_connect(service):
@@ -326,7 +326,7 @@ async def test_shutdown_cancels_background_connect_and_preserves_unknown_state(s
     assert not slow_service.mutex.locked()
     assert (await slow_service.call('iphone_session', {
         'action': 'connect_status', 'operation_id': operation_id})).isError
-    replacement = PhoneService(slow_service.home, Controller(), bridge)
+    replacement = PhoneService(slow_service.home, Controller(), bridge, backend="appium")
     assert (await replacement.call('iphone_session', {'action': 'connect'})).isError
     assert not replacement.controller.calls
 

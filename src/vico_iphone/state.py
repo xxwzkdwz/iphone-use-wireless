@@ -9,8 +9,26 @@ from contextlib import contextmanager
 from pathlib import Path
 
 
-def state_home() -> Path:
-    return Path(os.environ.get("VICO_IPHONE_HOME", str(Path.home() / ".local/share/vico-iphone"))).expanduser().resolve()
+DEFAULT_BACKEND = "direct-wda"
+DEFAULT_DIRECT_PORT = 18401
+DEFAULT_APPIUM_PORT = 4737
+
+
+def control_backend(backend: str | None = None) -> str:
+    value = backend if backend is not None else os.environ.get("IPHONE_USE_BACKEND", DEFAULT_BACKEND)
+    if value not in {"direct-wda", "appium"}:
+        raise ValueError("IPHONE_USE_BACKEND must be direct-wda or appium; no automatic fallback is supported")
+    return value
+
+
+def default_port(backend: str | None = None) -> int:
+    return DEFAULT_DIRECT_PORT if control_backend(backend) == "direct-wda" else DEFAULT_APPIUM_PORT
+
+
+def state_home(backend: str | None = None) -> Path:
+    selected = control_backend(backend)
+    directory = "iphone-use-wireless-direct" if selected == "direct-wda" else "vico-iphone"
+    return Path(os.environ.get("VICO_IPHONE_HOME", str(Path.home() / ".local/share" / directory))).expanduser().resolve()
 
 
 def private_directory(path: Path) -> Path:

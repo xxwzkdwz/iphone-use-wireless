@@ -4,12 +4,14 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: bash scripts/setup.sh [--check] [--skip-plugin]
+Usage: bash scripts/setup.sh [--check] [--skip-plugin] [--backend direct-wda|appium]
 
-Check Mac prerequisites, install this copy's pinned Python/Appium dependencies,
+Check Mac prerequisites, install this copy's pinned Python/direct-WDA dependencies,
 and register the Codex plugin. --skip-plugin prepares runtime dependencies only
 (use it inside an already installed plugin cache or with another MCP client).
 --check inspects prerequisites and installed dependencies without changing them.
+The default backend is direct-wda. --backend appium (or IPHONE_USE_BACKEND=appium)
+prepares the optional legacy Appium bridge instead.
 
 Xcode, uv, Node.js and npm must be available first; missing prerequisites are
 reported with the next step. This does not sign WDA, pair/connect an iPhone,
@@ -19,14 +21,18 @@ EOF
 
 check_only=false
 skip_plugin=false
-for arg in "$@"; do
-  case "$arg" in
-    --check) check_only=true ;;
-    --skip-plugin) skip_plugin=true ;;
+backend="${IPHONE_USE_BACKEND-direct-wda}"
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --check) check_only=true; shift ;;
+    --skip-plugin) skip_plugin=true; shift ;;
+    --backend) [[ $# -ge 2 ]] || { usage >&2; exit 2; }; backend="$2"; shift 2 ;;
     --help|-h) usage; exit 0 ;;
     *) usage >&2; exit 2 ;;
   esac
 done
+case "$backend" in direct-wda|appium) ;; *) usage >&2; exit 2 ;; esac
+export IPHONE_USE_BACKEND="$backend"
 plugin_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 cd "$plugin_root"
 missing=0
@@ -91,20 +97,37 @@ if [[ "$check_only" == true ]]; then
   else
     need 'Python runtime is missing or incomplete in this copy. Run setup without --check; uv will select a compatible Python.'
   fi
-  if node --input-type=module - "$plugin_root" <<'JS'
+  if node --input-type=module - "$plugin_root" "$backend" <<'JS'
 import { pathToFileURL } from 'node:url';
 import { join } from 'node:path';
-const { installationStatus } = await import(pathToFileURL(join(process.argv[2], 'bridge/runtime.mjs')));
-const result = await installationStatus();
-if (!result.installed) {
-  console.error('Bridge check:', result.reason || 'dependencies_not_ready');
-  process.exitCode = 1;
+import { readFile, stat } from 'node:fs/promises';
+const root = process.argv[2];
+if (process.argv[3] === 'appium') {
+  const { installationStatus } = await import(pathToFileURL(join(root, 'bridge/runtime.mjs')));
+  const result = await installationStatus();
+  if (!result.installed) {
+    console.error('Bridge check:', result.reason || 'dependencies_not_ready');
+    process.exitCode = 1;
+  }
+} else {
+  const { checkDependencies } = await import(pathToFileURL(join(root, 'direct/runtime.mjs')));
+  const directory = join(root, 'direct');
+  try {
+    const pkg = JSON.parse(await readFile(join(directory, 'node_modules/appium-webdriveragent/package.json'), 'utf8'));
+    const lock = JSON.parse(await readFile(join(directory, 'package-lock.json'), 'utf8'));
+    const project = await stat(join(directory, 'node_modules/appium-webdriveragent/WebDriverAgent.xcodeproj/project.pbxproj'));
+    if (!(await checkDependencies(directory)) || pkg.name !== 'appium-webdriveragent' || pkg.version !== '16.12.5' ||
+        lock.packages?.['node_modules/appium-webdriveragent']?.version !== '16.12.5' || !project.isFile()) throw Error();
+  } catch {
+    console.error('Direct WDA check: pinned runtime or WDA build source is missing.');
+    process.exitCode = 1;
+  }
 }
 JS
   then
-    pass 'Pinned Appium dependencies, compatibility patches and driver registration'
+    pass "Pinned $backend dependencies and build source"
   else
-    need 'Bridge runtime is missing or incomplete in this copy. Run setup without --check.'
+    need "The $backend runtime is missing or incomplete in this copy. Run setup without --check for this backend."
   fi
   if [[ "$missing" -gt 0 ]]; then exit 1; fi
   printf '%s\n' 'Runtime checks passed. Device pairing, WDA signing and the wireless tunnel are separate setup steps.'
@@ -113,8 +136,13 @@ fi
 
 printf '\n%s\n' 'Installing Python dependencies (uv selects Python 3.11+)...'
 uv sync --frozen
-printf '\n%s\n' 'Installing and checking the pinned Appium bridge...'
-node "$plugin_root/scripts/install-bridge.mjs" --json
+if [[ "$backend" == appium ]]; then
+  printf '\n%s\n' 'Installing and checking the pinned legacy Appium bridge...'
+  node "$plugin_root/scripts/install-bridge.mjs" --json
+else
+  printf '\n%s\n' 'Installing the pinned direct-WDA runtime and WDA build source...'
+  npm ci --prefix "$plugin_root/direct" --omit=dev --ignore-scripts --no-audit --no-fund
+fi
 if [[ "$skip_plugin" == false ]]; then
   printf '\n%s\n' 'Registering the Codex plugin...'
   bash "$plugin_root/scripts/install-codex.sh"

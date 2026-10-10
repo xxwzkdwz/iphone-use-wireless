@@ -1,7 +1,5 @@
 # iphone-use-wireless
 
-> This branch also includes an [experimental wireless direct-WDA backend](docs/DIRECT_WDA_EXPERIMENT.md), installed separately alongside the original version.
-
 **Use Wi-Fi to let Codex get things done on your iPhone.**
 
 Ask Codex to open apps, find information, enter text, tap, and swipe. After initial USB pairing, signing, and tunnel setup, unplug the cable and use your iPhone wirelessly on the same network as your Mac.
@@ -30,7 +28,7 @@ Help me set up iphone-use-wireless to control my own iPhone over Wi-Fi.
 Repository: https://github.com/xxwzkdwz/iphone-use-wireless
 
 Follow the guide: check the environment, help prepare missing software, and run setup.sh.
-Then pair the phone, configure WDA, and prepare the wireless tunnel.
+Then pair the phone, build and install WDA, save device configuration, and prepare the wireless tunnel.
 Reuse existing configuration. Guide me when I need to sign in to Apple,
 plug or unplug USB, trust the Mac, enable Developer Mode, or enter a password locally.
 Finish by connecting and reading the screen with USB unplugged.
@@ -50,9 +48,9 @@ bash scripts/setup.sh --check
 bash scripts/setup.sh
 ```
 
-`--check` reports readiness. Resolve missing system software first; if only plugin dependencies are missing, run `setup.sh` to install them. Installation requires full Xcode, uv (which prepares Python 3.11+), Node.js 22.12+ (22.x) or 24+, npm 10+, and the Codex CLI. `setup.sh` installs plugin runtime dependencies and registers the plugin, preserving device configuration without connecting the phone.
+`--check` reports readiness. Resolve missing system software first; if only plugin dependencies are missing, run `setup.sh` to install them. Installation requires full Xcode, uv (which prepares Python 3.11+), Node.js (22.12+ on 22.x or 24+ recommended), npm 10+, and the Codex CLI. `setup.sh` installs plugin runtime dependencies and registers the plugin, preserving device configuration without connecting the phone.
 
-Continue with signing, configuration, and the tunnel in the [guide](docs/WIRELESS_SETUP.en.md). Open a new chat and run `setup` to check the actual installed copy. The internal installation identifier remains `iphone-use`.
+The default backend connects directly to WDA on the phone, without running Appium Server. Continue with signing, WDA installation, configuration, and the tunnel in the [guide](docs/WIRELESS_SETUP.en.md). Open a new chat and run `setup` to check the actual installed copy. The internal installation identifier remains `iphone-use`.
 
 Other MCP clients can launch this project's `scripts/run-server.sh` with `bash`. For direct registration in the Codex CLI:
 
@@ -76,4 +74,4 @@ Keep the Mac awake, the phone unlocked on the same reachable network, and the fo
 
 ## More
 
-[Setup and troubleshooting](docs/WIRELESS_SETUP.en.md) · [Changelog](CHANGELOG.md) · [MIT License](LICENSE) · [Third-party notices](THIRD_PARTY_NOTICES.md)
+[Setup and troubleshooting](docs/WIRELESS_SETUP.en.md) · [Upgrade from older versions](docs/DIRECT_WDA_EXPERIMENT.md#english) · [Changelog](CHANGELOG.md) · [MIT License](LICENSE) · [Third-party notices](THIRD_PARTY_NOTICES.md)

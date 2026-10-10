@@ -5,34 +5,59 @@ import { PassThrough } from 'node:stream';
 import { chmod, mkdir, mkdtemp, open, readFile, realpath, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { dirname, join } from 'node:path';
-import { pathsFor } from '../bridge/runtime.mjs';
-import { inspectRegistry, inspectStrongbox, inspectTunnel, inspectUsb, readRegistry, strongboxPaths } from '../scripts/tunnel-diagnostics.mjs';
+import { backendFor, pathsFor, pathsForBackend, runtimeDirectoryForBackend, readConfig } from '../bridge/runtime.mjs';
+import { inspectRegistry, inspectStrongbox, inspectTunnel, inspectUsb, parseBackendArgs, readRegistry, resolveTunnelHelper, strongboxPaths } from '../scripts/tunnel-diagnostics.mjs';
 import { launchForeground, prepareStrongbox, startTunnel, sudoInvocation } from '../scripts/start-tunnel.mjs';
 
 const udid = ['00000000', '0000000000000001'].join('-');
-const remote = 'node_modules/appium-xcuitest-driver/node_modules/appium-ios-remotexpc';
+const remote = 'node_modules/appium-ios-remotexpc';
+const legacyRemote = 'node_modules/appium-xcuitest-driver/node_modules/appium-ios-remotexpc';
 const device = (type = 'Network') => ({ Properties: { SerialNumber: udid, ConnectionType: type } });
 const entry = (type = 'Network') => ({ udid, address: 'fd00::1', rsdPort: 12345, services: { test: { port: 12346 } }, connectionType: type });
 const registry = (value = entry()) => ({ kind: 'registry', value: { tunnels: { [udid]: value } } });
-async function fixture(t) {
+async function fixture(t, backend = 'direct-wda') {
   const root = await mkdtemp(join(await realpath('/tmp'), 'iu-tunnel-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   const userHome = join(root, 'user');
   await mkdir(userHome, { mode: 0o700 });
-  const directory = join(root, 'plugin/bridge');
-  const paths = pathsFor({ VICO_IPHONE_HOME: join(root, 'state') });
+  const directory = join(root, backend === 'appium' ? 'plugin/bridge' : 'plugin/direct');
+  const remote = backend === 'appium' ? legacyRemote : 'node_modules/appium-ios-remotexpc';
+  const paths = pathsForBackend({ VICO_IPHONE_HOME: join(root, 'state') }, backend);
   await mkdir(dirname(paths.config), { recursive: true });
   await writeFile(paths.config, JSON.stringify({ udid, wda_transport: 'coredevice', use_preinstalled_wda: true }));
   await mkdir(join(directory, remote, 'scripts'), { recursive: true });
   await writeFile(join(directory, remote, 'scripts/tunnel-creation.mjs'), '// fixture: never executed\n');
   await writeFile(join(directory, remote, 'package.json'), JSON.stringify({ name: 'appium-ios-remotexpc', version: '5.18.9' }));
-  await writeFile(join(directory, 'node_modules/appium-xcuitest-driver/package.json'), JSON.stringify({ version: '12.11.0' }));
+  if (backend === 'appium') await writeFile(join(directory, 'node_modules/appium-xcuitest-driver/package.json'), JSON.stringify({ version: '12.11.0' }));
   await writeFile(join(directory, 'package-lock.json'), JSON.stringify({ packages: {
-    [remote]: { version: '5.18.9' }, 'node_modules/appium-xcuitest-driver': { version: '12.11.0' },
+    [remote]: { version: '5.18.9' }, ...(backend === 'appium' ? { 'node_modules/appium-xcuitest-driver': { version: '12.11.0' } } : {}),
   } }));
-  return { root, userHome, directory, paths, platform: 'darwin', uid: process.getuid(),
+  return { root, userHome, directory, paths, backend, platform: 'darwin', uid: process.getuid(),
     interactive: true, listDevices: async () => [device()], request: async () => ({ kind: 'absent', reason: 'connection_refused' }) };
 }
+
+test('backend selection separates standalone defaults from legacy bridge state', async (t) => {
+  assert.equal(backendFor({}), 'direct-wda');
+  assert.throws(() => backendFor({ IPHONE_USE_BACKEND: '' }), { code: 'invalid_backend' });
+  assert.match(pathsForBackend({}).home, /iphone-use-wireless-direct$/);
+  assert.equal(pathsForBackend({}).defaultPort, 18401);
+  assert.match(pathsFor({ IPHONE_USE_BACKEND: 'direct-wda' }).home, /vico-iphone$/);
+  assert.equal(pathsFor({ IPHONE_USE_BACKEND: 'direct-wda' }).defaultPort, 4737);
+  assert.match(pathsForBackend({ IPHONE_USE_BACKEND: 'appium' }).home, /vico-iphone$/);
+  for (const backend of ['direct-wda', 'appium']) {
+    const options = await fixture(t, backend);
+    assert.equal((await readConfig(options.paths)).port, backend === 'appium' ? 4737 : 18401);
+    assert.equal(pathsForBackend({ VICO_IPHONE_HOME: options.root }, backend).home, options.root);
+    const helper = await resolveTunnelHelper(options.directory, backend);
+    assert.equal(helper.backend, backend);
+    assert.equal((await inspectTunnel(options)).can_start, true);
+    assert.equal(sudoInvocation({ helper, udid, port: 42314 }).options.cwd, runtimeDirectoryForBackend(backend));
+    if (backend === 'direct-wda') await assert.rejects(stat(join(options.root, 'plugin/bridge')), { code: 'ENOENT' });
+  }
+  assert.equal(parseBackendArgs(['--backend', 'appium', '--check'], ['--check']).backend, 'appium');
+  assert.throws(() => parseBackendArgs(['--backend'], []));
+  assert.throws(() => parseBackendArgs(['--backend', 'invalid'], []));
+});
 async function pointer(options, content = '42314\n') {
   await prepareStrongbox({ userHome: options.userHome, uid: options.uid, expectedPort: 42314 });
   const path = strongboxPaths(options.userHome).pointer;

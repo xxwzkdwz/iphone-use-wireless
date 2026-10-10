@@ -20,6 +20,35 @@ SPEC.loader.exec_module(prepare)
 IDENTITY = "Apple Development: Test Fixture"
 
 
+@pytest.mark.parametrize("backend, directory", [
+    (None, "iphone-use-wireless-direct"),
+    ("direct-wda", "iphone-use-wireless-direct"),
+    ("appium", "vico-iphone"),
+])
+def test_default_output_matches_selected_backend_state_home(tmp_path, monkeypatch, backend, directory):
+    from vico_iphone.state import state_home
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.delenv("VICO_IPHONE_HOME", raising=False)
+    monkeypatch.delenv("IPHONE_USE_BACKEND", raising=False)
+    if backend is not None:
+        monkeypatch.setenv("IPHONE_USE_BACKEND", backend)
+    assert prepare.default_output_root() == state_home() / "wda"
+    assert prepare.default_output_root() == tmp_path / ".local/share" / directory / "wda"
+    monkeypatch.setenv("VICO_IPHONE_HOME", "~/custom-phone-state")
+    assert prepare.default_output_root() == state_home() / "wda"
+    assert prepare.default_output_root() == tmp_path / "custom-phone-state/wda"
+
+
+@pytest.mark.parametrize("backend", ["invalid", ""])
+def test_invalid_backend_has_no_default_output_fallback(tmp_path, monkeypatch, backend):
+    monkeypatch.setenv("IPHONE_USE_BACKEND", backend)
+    monkeypatch.setenv("VICO_IPHONE_HOME", str(tmp_path / "custom"))
+    with pytest.raises(prepare.PrepareError, match="no automatic fallback"):
+        prepare.default_output_root()
+    assert not (tmp_path / "custom").exists()
+
+
 @pytest.fixture
 def source(tmp_path):
     app = tmp_path / "original" / prepare.WDA_APP_NAME
@@ -255,3 +284,6 @@ def test_help_requires_no_identity_or_platform_and_explains_boundary(capsys):
     assert "--source" in help_text and "--identity" in help_text and "--output-root" in help_text
     assert "configuration remain unchanged" in help_text
     assert "certificate password" in help_text
+    assert "default direct-wda" in help_text
+    assert "Only the explicit appium" in help_text
+    assert "iphone-use-wireless-direct/wda" in help_text

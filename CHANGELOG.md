@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0 — Wireless direct WDA
+
+- Direct WebDriverAgent is now the default wireless backend; Appium Server and the XCUITest Driver are no longer needed for normal use.
+- Setup installs standalone wireless and WebDriverAgent dependencies; updated Chinese and English guides cover pairing, signing, installation and cable-free use.
+- Existing phone setup can be explicitly copied into an independent direct-WDA profile without overwriting the original. The Appium backend remains available as an explicit compatibility option.
+- Session-scoped screen caching and consistent input and page-reading requests reduce unnecessary overhead.
+- Exclusive device ownership, fresh observations and explicit recovery remain in place; failed direct connections never silently switch backends.
+
 ## 0.1.2 — Guided wireless setup
 
 - One setup command checks Mac prerequisites, prepares this copy's runtime dependencies, and registers the Codex plugin. A read-only check and an installed-cache mode are included.

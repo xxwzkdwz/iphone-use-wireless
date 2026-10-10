@@ -1,4 +1,4 @@
-"""Experimental wireless WDA client; no Appium server or action retries.
+"""Wireless WDA client; no Appium server or action retries.
 
 Device ownership, observation validation, and action policy stay in the shared
 controller. Only the transport and the small set of native command mappings
@@ -19,6 +19,7 @@ from pathlib import Path
 import httpx
 
 from .iphone_control import IPhoneController, PhoneBridgeError, PhoneConfig, PhoneError
+from .state import DEFAULT_DIRECT_PORT
 
 
 MAX_RESPONSE_BYTES = 24 * 1024 * 1024
@@ -65,7 +66,7 @@ class DirectWDARuntime:
         self.last_stop = self.failure_receipt = None
         node = shutil.which("node")
         if not node or not self.runner_path.is_file():
-            raise PhoneBridgeError("无线 WDA 运行依赖未准备好，请先完成实验版安装",
+            raise PhoneBridgeError("无线 WDA 运行依赖未准备好，请先完成安装配置",
                                    code="direct_runtime_missing", request_outcome="not_sent")
         log_directory = self.data_directory / "runtime"
         log_directory.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -111,7 +112,7 @@ class DirectWDARuntime:
                 outcome = ("not_sent" if self.failure_receipt
                            and ready.get("request_outcome") == "not_sent"
                            and ready.get("cleanup_verified") is True else "unknown")
-                raise PhoneBridgeError("无线 WDA 未就绪；请查看本地实验版诊断",
+                raise PhoneBridgeError("无线 WDA 未就绪；请查看本地运行诊断",
                                        code=code, request_outcome=outcome)
             self.ready = ready
             return ready
@@ -181,9 +182,13 @@ class DirectWDAController(IPhoneController):
         super().clear_session()
 
     def load_config(self) -> PhoneConfig:
+        if self.config_override is None and not (self.data_directory / "configuration/iphone-control.json").exists():
+            return PhoneConfig(port=DEFAULT_DIRECT_PORT)
         config = super().load_config()
         if config.enabled and (config.wda_transport != "coredevice" or not config.use_preinstalled_wda):
-            raise PhoneError("无线直连实验版需要 coredevice 和已安装的 WDA，请先完成独立配置")
+            raise PhoneError("无线直连需要 coredevice 和已安装的签名 WDA，请先完成配置")
+        if config.prebuilt_wda_path:
+            raise PhoneError("无线直连不会在连接时安装 WDA；请先安装签名 WDA，并清空 prebuilt_wda_path")
         return config
 
     def runtime_status(self) -> dict:

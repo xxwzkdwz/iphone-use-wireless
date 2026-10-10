@@ -42,6 +42,21 @@ def test_init_direct_rejects_original_directory(tmp_path, monkeypatch):
     assert not (tmp_path / "configuration").exists()
 
 
+def test_init_direct_respects_explicit_home_and_preserves_original_profile(tmp_path, monkeypatch, capsys):
+    source, target = tmp_path / "old", tmp_path / "custom-direct"
+    config = PhoneConfig(enabled=True, udid="test-device", team_id="TESTTEAM01", platform_version="26.0",
+                         wda_transport="coredevice", use_preinstalled_wda=True)
+    original = source / "configuration/iphone-control.json"
+    write_json(original, config.model_dump())
+    before = original.read_bytes()
+    monkeypatch.setenv("VICO_IPHONE_HOME", str(target))
+    monkeypatch.setattr(sys, "argv", ["iphone-use", "init-direct", "--from-state", str(source)])
+    cli.main()
+    assert json.loads(capsys.readouterr().out)["state_directory"] == str(target)
+    assert json.loads((target / "configuration/iphone-control.json").read_text())["port"] == 18401
+    assert original.read_bytes() == before
+
+
 def test_unknown_backend_does_not_fall_back_to_appium(tmp_path):
     with pytest.raises(ValueError, match="BACKEND"):
         PhoneService(tmp_path, backend="direct-typo")
@@ -137,7 +152,7 @@ async def test_direct_stdio_is_distinct_and_status_does_not_launch_phone(tmp_pat
     async with stdio_client(params) as (read, write):
         async with ClientSession(read, write) as session:
             hello = await session.initialize()
-            assert hello.serverInfo.name == "iphone-use-wireless-direct"
+            assert hello.serverInfo.name == "iphone-use-wireless"
             tools = await session.list_tools()
             assert len(tools.tools) == 6
             assert all("direct-WDA" in tool.description for tool in tools.tools)

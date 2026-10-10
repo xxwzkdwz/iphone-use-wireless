@@ -19,7 +19,7 @@ from pydantic import ValidationError
 
 from . import __version__
 from .iphone_control import IPhoneController, PhoneAction, PhoneBridgeError, PhoneError
-from .state import operation_lock, process_alive, read_json, state_home, write_json
+from .state import control_backend, operation_lock, process_alive, read_json, state_home, write_json
 
 ROOT = Path(__file__).resolve().parents[2]
 CONNECT_POLL_WAIT_SECONDS = 20.0
@@ -125,10 +125,8 @@ async def bridge_command(home: Path, action: str) -> dict:
 class PhoneService:
     def __init__(self, home: Path | None = None, controller=None, bridge=None,
                  *, connect_wait_seconds: float = CONNECT_POLL_WAIT_SECONDS, backend: str | None = None):
-        self.home = home or state_home()
-        self.backend = backend or os.environ.get("IPHONE_USE_BACKEND", "appium")
-        if self.backend not in {"appium", "direct-wda"}:
-            raise ValueError("IPHONE_USE_BACKEND must be appium or direct-wda")
+        self.backend = control_backend(backend)
+        self.home = home or state_home(self.backend)
         if controller is None and self.backend == "direct-wda":
             from .direct_wda import DirectWDAController
             controller = DirectWDAController(self.home)
@@ -395,12 +393,13 @@ def create_server(service: PhoneService) -> Server:
     instructions = INSTRUCTIONS
     if direct:
         instructions = instructions.replace("A running Appium\nbridge", "A prepared direct-WDA runtime")
-        instructions += ("\nThis is the experimental wireless direct-WDA backend. It uses no Appium Server. "
+        instructions += ("\nThis is the wireless direct-WDA backend. It uses no Appium Server. "
                          "iphone_setup(start) only checks host readiness; iphone_session(connect) starts WDA. "
+                         "First prepare a signed, installed WDA using the owner's Apple account and Xcode. "
                          "Screen geometry is cached within a session, matching the original backend. "
                          "After rotating the phone, reconnect before coordinate-based actions. "
-                         "Never run the original phone plugin concurrently on the same device.\n")
-    server = Server("iphone-use-wireless-direct" if direct else "iphone-use", version=__version__,
+                         "Never run another phone-control backend concurrently on the same device.\n")
+    server = Server("iphone-use-wireless" if direct else "iphone-use", version=__version__,
                     instructions=instructions, lifespan=lifespan)
 
     @server.list_tools()
@@ -409,11 +408,11 @@ def create_server(service: PhoneService) -> Server:
             return TOOLS
         tools = [tool.model_copy(deep=True) for tool in TOOLS]
         for tool in tools:
-            tool.description = "[Wireless direct-WDA experiment] " + tool.description
+            tool.description = "[Wireless direct-WDA] " + tool.description
             if tool.name == "iphone_setup":
-                tool.description = ("[Wireless direct-WDA experiment] status/start check host dependencies and configuration only. "
+                tool.description = ("[Wireless direct-WDA] status/start check host dependencies and configuration only. "
                                     "connect starts the owned WDA runtime over the existing wireless tunnel. stop cleans up only this runtime. "
-                                    "No Appium Server, installation, signing or tunnel creation.")
+                                    "No Appium Server. First prepare an installed, signed WDA and wireless tunnel; this tool does not install or sign software or create tunnels.")
             elif tool.name == "iphone_session":
                 tool.description = tool.description.replace(
                     "Connect may build/start WDA using owner-configured signing.",

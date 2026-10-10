@@ -32,6 +32,8 @@ def setup_host(tmp_path):
         "VICO_IPHONE_HOME": str(state),
     }
 
+    env.pop("IPHONE_USE_BACKEND", None)
+
     def command(name, body):
         path = binary / name
         path.write_text("#!/bin/bash\nset -eu\n" + body + "\n")
@@ -41,7 +43,7 @@ def setup_host(tmp_path):
     command("xcode-select", "printf '/Applications/Xcode.app/Contents/Developer\\n'")
     command("xcodebuild", 'exit "${SETUP_TEST_XCODE_STATUS:-0}"')
     command("xcrun", "printf '/Applications/Xcode.app/Contents/Developer/usr/bin/devicectl\\n'")
-    command("npm", "printf '10.9.0\\n'")
+    command("npm", 'if [[ "$1" == --version ]]; then printf "10.9.0\\n"; else printf "npm %s\\n" "$*" >> "$SETUP_TEST_LOG"; exit "${SETUP_TEST_NPM_STATUS:-0}"; fi')
     command("codex", "exit 0")
     command("uv", 'printf "uv %s\\n" "$*" >> "$SETUP_TEST_LOG"; exit "${SETUP_TEST_UV_STATUS:-0}"')
     command("node", '''
@@ -71,7 +73,7 @@ def test_setup_preserves_config_and_uses_exact_copy(setup_host):
     assert result.returncode == 0, result.stderr
     assert log.read_text().splitlines() == [
         "uv sync --frozen",
-        f"node {root}/scripts/install-bridge.mjs --json",
+        f"npm ci --prefix {root}/direct --omit=dev --ignore-scripts --no-audit --no-fund",
         "register plugin",
         "uv run --frozen iphone-use doctor",
     ]
@@ -115,7 +117,7 @@ def test_check_detects_incomplete_runtime_without_repair(setup_host):
     result = run("--check")
     assert result.returncode == 1
     assert "Python runtime is missing" in result.stderr
-    assert "Bridge runtime is missing" in result.stderr
+    assert "direct-wda runtime is missing" in result.stderr
     assert not log.exists()
 
 
@@ -132,3 +134,37 @@ def test_invalid_arguments_do_not_install(setup_host):
     run, _, log, _, _, _ = setup_host
     assert run("--unknown").returncode == 2
     assert not log.exists()
+
+
+def test_explicit_legacy_backend_only_installs_bridge(setup_host):
+    run, env, log, root, _, _ = setup_host
+    env["IPHONE_USE_BACKEND"] = "direct-wda"
+    result = run("--backend", "appium", "--skip-plugin")
+    assert result.returncode == 0, result.stderr
+    assert log.read_text().splitlines() == [
+        "uv sync --frozen", f"node {root}/scripts/install-bridge.mjs --json",
+        "uv run --frozen iphone-use doctor",
+    ]
+
+
+def test_backend_env_supported_and_empty_or_unknown_backend_rejected(setup_host):
+    run, env, log, _, _, _ = setup_host
+    for backend in ("", "unknown"):
+        env["IPHONE_USE_BACKEND"] = backend
+        assert run().returncode == 2
+        assert not log.exists()
+    assert run("--backend").returncode == 2
+    env["IPHONE_USE_BACKEND"] = "appium"
+    result = run("--skip-plugin")
+    assert result.returncode == 0, result.stderr
+    assert "install-bridge.mjs" in log.read_text()
+    assert "npm ci" not in log.read_text()
+
+
+def test_failed_direct_npm_install_does_not_register_plugin(setup_host):
+    run, env, log, _, _, _ = setup_host
+    env["SETUP_TEST_NPM_STATUS"] = "9"
+    result = run()
+    assert result.returncode == 9
+    assert "register plugin" not in log.read_text()
+    assert "iphone-use doctor" not in log.read_text()

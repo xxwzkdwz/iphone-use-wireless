@@ -10,6 +10,7 @@ import { createRequire } from 'node:module';
 import { applyIPhoneBridgePatches } from '../scripts/iphone-control-patches.mjs';
 
 export const bridgeDirectory = dirname(fileURLToPath(import.meta.url));
+export const directDirectory = join(bridgeDirectory, '../direct');
 export const versions = Object.freeze({ appium: '3.7.0', xcuitest: '12.11.0' });
 export const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 const execFileAsync = promisify(execFile);
@@ -17,10 +18,30 @@ export class BridgeError extends Error {
   constructor(code, message) { super(message); this.code = code; }
 }
 export function pathsFor(env = process.env) {
+  // Legacy bridge entry points deliberately ignore IPHONE_USE_BACKEND. An
+  // Appium CLI command must never silently pick the default direct profile.
   const home = resolve(env.VICO_IPHONE_HOME || join(homedir(), '.local/share/vico-iphone'));
+  return statePaths(home, 'appium');
+}
+export function backendFor(env = process.env) {
+  const backend = env.IPHONE_USE_BACKEND ?? 'direct-wda';
+  if (!['direct-wda', 'appium'].includes(backend)) throw new BridgeError('invalid_backend', 'Use direct-wda or appium as the backend.');
+  return backend;
+}
+export function runtimeDirectoryForBackend(backend = backendFor()) {
+  if (!['direct-wda', 'appium'].includes(backend)) throw new BridgeError('invalid_backend', 'Use direct-wda or appium as the backend.');
+  return backend === 'appium' ? bridgeDirectory : directDirectory;
+}
+export function pathsForBackend(env = process.env, backend = backendFor(env)) {
+  runtimeDirectoryForBackend(backend);
+  const defaultHome = backend === 'appium' ? '.local/share/vico-iphone' : '.local/share/iphone-use-wireless-direct';
+  return statePaths(resolve(env.VICO_IPHONE_HOME || join(homedir(), defaultHome)), backend);
+}
+function statePaths(home, backend) {
   const runtime = join(home, 'bridge');
   return {
-    home, runtime, config: join(home, 'configuration/iphone-control.json'),
+    home, runtime, backend, defaultPort: backend === 'appium' ? 4737 : 18401,
+    config: join(home, 'configuration/iphone-control.json'),
     descriptor: join(runtime, 'owner.json'), socket: join(runtime, 'control.sock'),
     lock: join(runtime, 'operation.lock'), log: join(home, 'logs/bridge.log'),
   };
@@ -59,7 +80,7 @@ export async function readConfig(paths) {
   if (!config || typeof config !== 'object' || Array.isArray(config)) {
     throw new BridgeError('invalid_config', 'iPhone configuration must be an object.');
   }
-  const port = config.port ?? 4737;
+  const port = config.port ?? paths.defaultPort ?? 4737;
   if (!Number.isInteger(port) || port < 1024 || port > 65535) {
     throw new BridgeError('invalid_port', 'The bridge port must be an integer between 1024 and 65535.');
   }

@@ -5,8 +5,8 @@ import { lstat, mkdir, open } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { BridgeError, bridgeDirectory, pathsFor, privateDirectory, readConfig } from '../bridge/runtime.mjs';
-import { inspectRegistry, inspectStrongbox, inspectTunnel, resolveTunnelHelper, strongboxPaths } from './tunnel-diagnostics.mjs';
+import { backendFor, BridgeError, pathsForBackend, runtimeDirectoryForBackend, privateDirectory, readConfig } from '../bridge/runtime.mjs';
+import { inspectRegistry, inspectStrongbox, inspectTunnel, parseBackendArgs, resolveTunnelHelper, strongboxPaths } from './tunnel-diagnostics.mjs';
 
 export async function prepareStrongbox({ userHome = homedir(), uid = process.getuid(), expectedPort,
   inspectPointer = inspectStrongbox } = {}) {
@@ -37,12 +37,12 @@ export function sudoInvocation({ helper, udid, port, userHome = homedir(), node 
   return { command: '/usr/bin/sudo',
     args: ['--preserve-env=HOME', '-p', 'iphone use administrator password: ', '--', node,
       helper.helperPath, '--udid', udid, '--tunnel-registry-port', String(port), '--reconnect-retries', '3'],
-    options: { cwd: bridgeDirectory, env: { HOME: userHome, PATH: '/usr/bin:/bin:/usr/sbin:/sbin', LANG: 'en_US.UTF-8' },
+    options: { cwd: runtimeDirectoryForBackend(helper.backend), env: { HOME: userHome, PATH: '/usr/bin:/bin:/usr/sbin:/sbin', LANG: 'en_US.UTF-8' },
       stdio: ['inherit', 'pipe', 'pipe'] },
   };
 }
-export async function launchForeground({ helper, udid, port, userHome, directory = bridgeDirectory,
-  paths = pathsFor(),
+export async function launchForeground({ helper, udid, port, userHome, directory = runtimeDirectoryForBackend(helper.backend),
+  paths = pathsForBackend(process.env, helper.backend),
   spawnProcess = spawn, output = (text) => process.stdout.write(text), errorOutput = (text) => process.stderr.write(text),
   poll = async () => inspectRegistry(udid, await inspectStrongbox(userHome)) }) {
   const invocation = sudoInvocation({ helper, udid, port, userHome });
@@ -105,7 +105,7 @@ export async function launchForeground({ helper, udid, port, userHome, directory
   }
 }
 export async function startTunnel(options = {}) {
-  const { checkOnly = false, paths = pathsFor(), userHome = homedir(), directory = bridgeDirectory,
+  const { backend = backendFor(), checkOnly = false, paths = pathsForBackend(process.env, backend), userHome = homedir(), directory = runtimeDirectoryForBackend(backend),
     uid = process.getuid(), interactive = Boolean(process.stdin.isTTY && process.stderr.isTTY), launch = launchForeground } = options;
   const originalConfig = await readConfig(paths);
   const report = await inspectTunnel(options);
@@ -128,16 +128,17 @@ export async function startTunnel(options = {}) {
       config.use_preinstalled_wda !== originalConfig.use_preinstalled_wda) {
     throw new BridgeError('configuration_changed', 'Device configuration changed during preparation. Rerun --check; nothing was started.');
   }
-  const helper = await resolveTunnelHelper(directory);
+  const helper = await resolveTunnelHelper(directory, backend);
   return launch({ helper, udid: config.udid, port: current.tunnel_registry.port, userHome, directory, paths });
 }
 export async function main(args = process.argv.slice(2)) {
   const json = args.includes('--json');
   try {
-    if (args.some((arg) => !['--check', '--json'].includes(arg)) || (json && !args.includes('--check'))) {
-      throw new BridgeError('usage', 'Usage: node scripts/start-tunnel.mjs [--check [--json]]');
+    const parsed = parseBackendArgs(args, ['--check', '--json']);
+    if (json && !parsed.flags.includes('--check')) {
+      throw new BridgeError('usage', 'Usage: node scripts/start-tunnel.mjs [--backend direct-wda|appium] [--check [--json]]');
     }
-    const result = await startTunnel({ checkOnly: args.includes('--check') });
+    const result = await startTunnel({ backend: parsed.backend, checkOnly: parsed.flags.includes('--check') });
     if (json) process.stdout.write(JSON.stringify(result) + '\n');
     else if (result.read_only) {
       const usbAttached = result.usb.connected === true ? 'yes' : result.usb.connected === false ? 'no' : 'unknown';

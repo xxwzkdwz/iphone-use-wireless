@@ -2,9 +2,11 @@
 
 [Back to README](../README.en.md) · [中文](WIRELESS_SETUP.md)
 
-After initial USB pairing and your own Apple signing, unplug the cable and operate your iPhone through a Mac on the same network. This guide uses **preinstalled WDA with CoreDevice / RemoteXPC**, requiring iOS 18+. Keep the Mac awake with Codex, Appium, and a foreground tunnel running, and keep the phone unlocked and reachable.
+After initial USB pairing and your own Apple signing, unplug the cable and operate your iPhone through a Mac on the same network. The default backend uses **direct WDA with CoreDevice / RemoteXPC**, requiring iOS 18+. Codex, this plugin, and a foreground tunnel run on the Mac and connect directly to WDA preinstalled on the phone. Appium Server and XCUITest Driver are not run. The underlying components remain Apple XCTest, WebDriverAgent, and the `appium-ios-remotexpc` wireless library. Keep the Mac awake and the phone unlocked and reachable.
 
 Give this guide to Codex running on your Mac. It can check the environment, help prepare software, and run installation and configuration commands. You provide the Mac, iPhone, and initial pairing cable, and complete Apple sign-in, phone trust and Developer Mode confirmations, and any required password entry locally. Full Xcode is required, but it can be prepared during setup; you do not need to configure every piece of software manually beforehand.
+
+Existing Appium-backend users should read the [upgrade and compatibility notes](DIRECT_WDA_EXPERIMENT.md#english) first. If you already configured the direct backend, reuse that configuration.
 
 ## 1. Get the source and prepare software
 
@@ -19,7 +21,7 @@ bash scripts/setup.sh --check
 `--check` inspects system software and plugin dependencies in this directory without installing, changing device configuration, or connecting the phone. Missing plugin dependencies are expected in a fresh clone. Resolve missing system software using the reported next steps:
 
 - **Full Xcode**: Codex can inspect existing installations and guide download and installation. Launch Xcode once, complete component installation, and select it under **Settings → Locations → Command Line Tools**. Complete license or administrator prompts locally.
-- **Runtime tools**: [uv](https://docs.astral.sh/uv/getting-started/installation/), [Node.js](https://nodejs.org/en/download), and npm 10+. uv prepares the required Python 3.11+ environment. Supported Node.js versions are `^20.19.0 || ^22.12.0 || >=24.0.0`. Codex can help install and check these tools.
+- **Runtime tools**: [uv](https://docs.astral.sh/uv/getting-started/installation/), [Node.js](https://nodejs.org/en/download), and npm 10+. uv prepares the required Python 3.11+ environment. Node.js 22.12+ (22.x) or 24+ is recommended; 20.19+ on 20.x is also supported, while 21.x and 23.x are not. Codex can help install and check these tools.
 - **Codex CLI**: `codex` must be available in the terminal. For another MCP client, use `--skip-plugin` without needing to install the Codex CLI.
 
 Once system software is ready:
@@ -28,7 +30,7 @@ Once system software is ready:
 bash scripts/setup.sh
 ```
 
-The script installs pinned Python and bridge dependencies, checks the environment, and registers the Codex plugin. It preserves device configuration and does not connect to or operate the phone. It does not install system software such as Xcode or Node.js; missing prerequisites produce a next step and a nonzero exit. `bash scripts/setup.sh --skip-plugin` prepares dependencies in the current copy without registering the plugin.
+The script installs pinned Python and `direct/` dependencies, checks the environment, and registers the Codex plugin. It preserves device configuration and does not connect to or operate the phone. It does not install system software such as Xcode or Node.js; missing prerequisites produce a next step and a nonzero exit. `bash scripts/setup.sh --skip-plugin` prepares dependencies in the current copy without registering the plugin.
 
 Run subsequent commands from the repository root unless a step explicitly refers to the installed Codex copy. Keep real device configuration, screenshots, and signing material in private local directories.
 
@@ -49,10 +51,10 @@ See [Apple's wireless device guide](https://help.apple.com/xcode/mac/current/en.
 
 WDA is a test helper installed on the phone. Use your own Apple signing configuration; you do not need third-party signing, someone else's signed app, certificates, or device settings. Xcode's free Personal Team can be used; see step 8 for signing expiration.
 
-Open the project included with the installed dependencies:
+The standalone WDA dependency is pinned to `appium-webdriveragent 16.12.5`. Open its Xcode project:
 
 ```sh
-open bridge/node_modules/appium-xcuitest-driver/node_modules/appium-webdriveragent/WebDriverAgent.xcodeproj
+open direct/node_modules/appium-webdriveragent/WebDriverAgent.xcodeproj
 ```
 
 Configure it in Xcode; Codex can help locate settings and troubleshoot build errors:
@@ -85,11 +87,23 @@ uv run --frozen python scripts/prepare-wda.py \
 
 The source must already be signed and pass signature verification. The script copies it into a new private directory, removes only the copy's embedded `XC*` frameworks, signs nested XCTest bundles and the outer app, and checks the signature. It preserves the original and device configuration, following Appium's [preinstalled-WDA requirements](https://appium.github.io/appium-xcuitest-driver/latest/guides/run-preinstalled-wda/).
 
-On success, `prepared_path` contains the absolute `.app` path needed below. The default location is a new directory under `${VICO_IPHONE_HOME:-~/.local/share/vico-iphone}/wda`; use `--output-root '/absolute/private/wda'` to choose another location. On signing failure, the script stops and removes its incomplete copy. This step does not install the app on the phone or establish a working phone connection.
+On success, `prepared_path` contains the absolute `.app` path to install below. The default location is a new directory under `~/.local/share/iphone-use-wireless-direct/wda`, or `wda/` under `VICO_IPHONE_HOME` when set; use `--output-root '/absolute/private/wda'` to choose another location. On signing failure, the script stops and removes its incomplete copy. This step only produces the signed package.
+
+### Install the prepared copy on the phone
+
+Keep USB connected and the phone unlocked, and stop the Xcode test. Substitute your device ID and the returned `prepared_path`:
+
+```sh
+xcrun devicectl device install app \
+  --device '<DEVICE_UDID>' \
+  '/absolute/path/from/prepared_path/WebDriverAgentRunner-Runner.app'
+```
+
+Complete developer-trust prompts on the phone; if a restart is required, unlock it afterward. Direct-backend `connect` only starts WDA already installed on the phone: it **does not install or re-sign it**. Repeat build, preparation, and installation when signing expires. Continue with configuration and wireless connection after installation succeeds.
 
 ## 4. Save device configuration
 
-Inspect and reuse an existing working configuration. For first setup, replace the placeholders with your local values and use the previous step's `prepared_path`:
+Inspect and reuse an existing direct-backend configuration. Migrate an older Appium configuration using the [upgrade notes](DIRECT_WDA_EXPERIMENT.md#english). For first setup, replace the placeholders with your local values:
 
 ```sh
 uv run --frozen iphone-use configure \
@@ -98,14 +112,13 @@ uv run --frozen iphone-use configure \
   --platform-version '<IOS_VERSION>' \
   --transport coredevice \
   --wda-bundle-id '<YOUR_WDA_BUNDLE_ID>' \
-  --preinstalled-wda \
-  --prebuilt-wda-path '/absolute/path/to/prepared/WebDriverAgentRunner-Runner.app'
+  --preinstalled-wda
 uv run --frozen iphone-use doctor
 ```
 
-`--preinstalled-wda` selects the preinstalled launch method. With `--prebuilt-wda-path`, Appium installs from the signed package when connecting, so retain that file. Omit the path only if the correct matching WDA is already installed. `doctor` checks the host and configuration; connect to the phone in step 7.
+Direct mode uses `coredevice` and preinstalled WDA by default; the command lists them explicitly for clarity. Do not pass `--prebuilt-wda-path`: installation is a separate step above. Retain the signed copy for reinstallation. `doctor` checks the host and configuration; connect to the phone in step 7.
 
-Private configuration is stored at `~/.local/share/vico-iphone/configuration/iphone-control.json`, or under `VICO_IPHONE_HOME`. Compatibility paths and the internal `iphone-use` CLI name remain unchanged. Appium defaults to `127.0.0.1:4737`.
+Default private configuration is stored at `~/.local/share/iphone-use-wireless-direct/configuration/iphone-control.json`, and the local WDA forwarding port is `127.0.0.1:18401`. `VICO_IPHONE_HOME` takes precedence over the default directory. The CLI is still named `iphone-use`. The older Appium backend requires explicit selection; see [compatibility notes](DIRECT_WDA_EXPERIMENT.md#english).
 
 ## 5. Prepare the actual installed Codex copy
 
@@ -155,9 +168,11 @@ Ask Codex:
 
 > Use iphone-use-wireless to connect to my phone. USB is unplugged. Check the wireless tunnel, read the current UI components, and tell me whether the connection succeeded.
 
-Codex checks status, starts the bridge if needed, and creates a device session. If connection returns pending with an `operation_id`, poll `connect_status` for that operation instead of connecting again. After success, use that session's `session_token` to read current components and perform your task.
+Codex checks status and creates a device session. In the default mode, `iphone_setup(start)` only checks local dependencies; `iphone_session(connect)` starts the preinstalled WDA and local forwarding, without starting Appium Server. If connection returns pending with an `operation_id`, poll `connect_status` for that operation instead of connecting again. After success, use that session's `session_token` to read current components and perform your task.
 
 Observe again after each action. Use screenshots only when components are unavailable or meaningful repeated attempts still cannot locate the target. Check uncertain outcomes before proceeding; do not repeat a send, tap, or purchase to test whether it worked. Disconnect your session when finished.
+
+Screen dimensions are cached within a session. After rotating the phone, disconnect and reconnect before coordinate actions.
 
 For daily use: unlock the phone on the same network → keep the Mac awake → run `node scripts/start-tunnel.mjs` → ask Codex to connect and act. Keep the tunnel running. Use the next section to recover after sleep, restart, network changes, or signing expiration.
 
@@ -170,17 +185,17 @@ For daily use: unlock the phone on the same network → keep the Mac awake → r
 | Wired works, wireless disconnects | End your wired session and old tunnel, unplug, then run `start-tunnel.mjs` and check for Network registration. |
 | Failure after sleep or network change | Wake the Mac, unlock the phone, check reachability, and restart your stale tunnel. |
 | RemoteXPC unavailable | Run `start-tunnel.mjs --check --json` and follow the next step. Diagnostics do not create a tunnel. |
-| Port 42314 or 4737 is occupied | Identify and coordinate with its owner; do not kill unrelated services. |
+| Port 42314 or 18401 is occupied | Identify and coordinate with its owner; do not kill unrelated services. |
 | Tunnel registry permission error | Inspect diagnostics, then check your Strongbox paths as described below. |
-| WDA signing or launch failure | Check Developer Mode, team, base bundle ID, and provisioning. Repair the Xcode build and rerun `prepare-wda.py`. |
-| Free-team app stops after several days | Personal Team device provisioning expires after seven days. Rebuild and prepare WDA, then update the configured copy path. See [Apple's account guide](https://developer.apple.com/help/account/basics/about-your-developer-account). |
-| Prepared `.app` path no longer exists | End your session and rerun step 4 with a stable valid path. Do not bypass validation by editing JSON directly. |
+| WDA signing or launch failure | Check Developer Mode, team, base bundle ID, and provisioning. Repair the Xcode build, rerun `prepare-wda.py`, and install the result as in step 3. |
+| Free-team app stops after several days | Personal Team device provisioning expires after seven days. Rebuild, prepare, and install WDA. Update configuration if the team or bundle ID changed. See [Apple's account guide](https://developer.apple.com/help/account/basics/about-your-developer-account). |
+| WDA is missing or the installed bundle ID does not match | End your session, install the prepared package as in step 3, and check the base bundle ID from step 4. |
 | Plugin update reports missing dependencies | Run `bash scripts/setup.sh --skip-plugin` in the currently loaded copy, not an old cache directory. |
 | Target moved or action result is uncertain | Observe again and inspect status. Do not replay uncertain actions or delete session locks. |
 
 Before reconfiguration or dependency upgrades, end your device session and any tunnel using that directory. Preserve private configuration and your signed copy. Avoid simultaneous control by different controllers.
 
-If tunnel startup fails, inspect the private log path printed in the terminal: `$VICO_IPHONE_HOME/logs/tunnel.log`, defaulting to `~/.local/share/vico-iphone/logs/tunnel.log`. Raw logs may contain device identifiers; do not paste them unchanged into public issues or documentation.
+If tunnel startup fails, inspect the private log path printed in the terminal: `$VICO_IPHONE_HOME/logs/tunnel.log`, defaulting to `~/.local/share/iphone-use-wireless-direct/logs/tunnel.log`. Raw logs may contain device identifiers; do not paste them unchanged into public issues or documentation.
 
 ### Advanced: your own Strongbox permissions
 

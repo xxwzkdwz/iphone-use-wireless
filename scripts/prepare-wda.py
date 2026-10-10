@@ -30,8 +30,13 @@ class PrepareError(RuntimeError):
 
 
 def default_output_root() -> Path:
-    state = Path(os.environ.get("VICO_IPHONE_HOME", str(Path.home() / ".local/share/vico-iphone")))
-    return state.expanduser() / "wda"
+    # Keep the standalone, standard-library-only helper aligned with state_home.
+    backend = os.environ.get("IPHONE_USE_BACKEND", "direct-wda")
+    if backend not in {"direct-wda", "appium"}:
+        raise PrepareError("IPHONE_USE_BACKEND must be direct-wda or appium; no automatic fallback is supported.")
+    directory = "iphone-use-wireless-direct" if backend == "direct-wda" else "vico-iphone"
+    state = Path(os.environ.get("VICO_IPHONE_HOME", str(Path.home() / ".local/share" / directory)))
+    return state.expanduser().resolve() / "wda"
 
 
 def absolute_path(value: Path | str, label: str) -> Path:
@@ -150,14 +155,14 @@ def prepare_wda(
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=__doc__,
-        epilog="Success prints JSON with prepared_path for iphone-use configure --prebuilt-wda-path. Failures remove only this run's incomplete copy; the original and current configuration remain unchanged. Never pass a certificate password as --identity.",
+        epilog="Success prints JSON with prepared_path. Install that signed app on the iPhone before configuring the default direct-wda backend; this command does not install it. Only the explicit appium backend accepts configure --prebuilt-wda-path. Failures remove only this run's incomplete copy; the original and current configuration remain unchanged. Never pass a certificate password as --identity.",
     )
     parser.add_argument("--source", required=True, type=Path,
                         help="Absolute path to your existing, validly signed WebDriverAgentRunner-Runner.app built in Xcode")
     parser.add_argument("--identity", required=True,
                         help="Exact existing local Apple Development signing identity name or SHA-1; no automatic identity selection")
     parser.add_argument("--output-root", type=Path,
-                        help="Absolute parent for a new private prepared.* directory (default: $VICO_IPHONE_HOME/wda or ~/.local/share/vico-iphone/wda)")
+                        help="Absolute parent for a new private prepared.* directory (default: $VICO_IPHONE_HOME/wda or ~/.local/share/iphone-use-wireless-direct/wda; explicit appium uses ~/.local/share/vico-iphone/wda)")
     args = parser.parse_args(argv)
     try:
         if sys.platform != "darwin":
