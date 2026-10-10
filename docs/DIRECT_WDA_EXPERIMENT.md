@@ -34,6 +34,8 @@ codex mcp add iphone_wireless_direct -- bash '/absolute/path/to/iphone-use-wirel
 
 同一台手机一次只运行一个控制会话。先让当前会话断开，再切换原版或实验版；两者共用设备占用检查。动作超时不会自动重放。
 
+与原版一样，屏幕信息在一次会话内缓存，断开或重新连接时清空。测试和操作时保持同一屏幕方向；旋转手机后应重新连接再做坐标操作，不能把缓存尺寸当作实时方向检测。
+
 ## 返回原版
 
 让实验会话断开，再使用原来的 `iphone-use-wireless` 插件即可。原目录、设备配置、安装和 GitHub 主分支保持原样。若不想继续加载实验工具：
@@ -45,5 +47,7 @@ codex mcp remove iphone_wireless_direct
 ## 效果比较
 
 连接耗时和已连接后的操作耗时分开记录。使用同一设备、无线网络和页面比较读取组件、截图、点击；工具耗时不包括模型思考。少量真机结果只能说明本次试用情况，不代表所有 App 或网络下都会更快。
+
+实验版已对齐原版的屏幕信息缓存、WDA 建会话参数、XML 获取格式和输入参数。具体测试口径、交替运行顺序和结果检查见[公平对比协议](BENCHMARK_PROTOCOL.md)。
 
 参考：[WDA 独立运行](https://appium.github.io/appium-xcuitest-driver/latest/guides/wda-custom-server/) · [Codex MCP 配置](https://developers.openai.com/codex/mcp)

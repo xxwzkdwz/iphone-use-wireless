@@ -59,6 +59,7 @@ class FakeRuntime:
 class FakeWDA:
     def __init__(self):
         self.calls = []
+        self.urls = []
         self.failure_path = None
         self.failure = None
         self.bundle = 'com.apple.springboard'
@@ -70,6 +71,7 @@ class FakeWDA:
         body = json.loads(request.content) if request.content else None
         path = request.url.path
         self.calls.append((request.method, path, body))
+        self.urls.append(request.url)
         if self.failure_path and path.endswith(self.failure_path):
             if isinstance(self.failure, Exception) or isinstance(self.failure, asyncio.CancelledError):
                 raise self.failure
@@ -136,7 +138,13 @@ async def test_connect_leases_before_helper_and_never_launches_target_app(phone)
     runtime.before_start = check_lease
     await controller.session('task', 'connect', 'com.example.ignored')
     assert fake.calls == [('POST', '/session', {'capabilities': {
-        'alwaysMatch': {'shouldTerminateApp': False}, 'firstMatch': [{}]}})]
+        'alwaysMatch': {}, 'firstMatch': [{
+            'arguments': [], 'environment': {}, 'eventloopIdleDelaySec': 0,
+            'shouldWaitForQuiescence': True, 'maxTypingFrequency': 60,
+            'shouldUseSingletonTestManager': True, 'shouldTerminateApp': False,
+            'forceAppLaunch': False, 'useNativeCachingStrategy': True,
+            'forceSimulatorSoftwareKeyboardPresence': True,
+        }]}})]
     assert runtime.starts == 1
     assert controller.session_id == 'wda-session-1'
     assert not controller.uncertain
@@ -164,6 +172,75 @@ async def test_raw_wda_observation_uses_persistent_client_and_optional_screensho
     observed, png = await controller.observe('task', capture_image=True)
     assert png == PNG and observed['width'] == 390
     assert controller.client is client
+    assert sum(path.endswith('/wda/screen') for _, path, _ in fake.calls) == 1
+    source_urls = [url for url in fake.urls if url.path.endswith('/source')]
+    assert len(source_urls) == 2
+    assert all(dict(url.params) == {'format': 'xml', 'scope': 'AppiumAUT'} for url in source_urls)
+
+
+async def test_screen_info_cache_returns_independent_copies(phone):
+    controller, fake, _ = phone
+    await controller.session('task', 'connect')
+    original = await controller.mobile('deviceScreenInfo')
+    original['screenSize']['width'] = 99
+    cached = await controller.mobile('deviceScreenInfo')
+    assert cached['screenSize'] == {'width': 390, 'height': 844}
+    cached['screenSize']['height'] = 77
+    assert (await controller.mobile('deviceScreenInfo'))['screenSize']['height'] == 844
+    assert sum(path.endswith('/wda/screen') for _, path, _ in fake.calls) == 1
+
+
+@pytest.mark.parametrize('failure', [
+    httpx.ReadTimeout('screen response lost'),
+    httpx.Response(200, json={'value': {'screenSize': {'width': 'bad', 'height': 844}}}),
+])
+async def test_screen_info_failures_and_invalid_geometry_are_not_cached(phone, failure):
+    controller, fake, _ = phone
+    await controller.session('task', 'connect')
+    fake.failure_path, fake.failure = '/wda/screen', failure
+    with pytest.raises(PhoneError):
+        await controller.window_rect()
+    assert controller._screen_info_cache is None
+    fake.failure_path = None
+    assert (await controller.window_rect())['width'] == 390
+    assert sum(path.endswith('/wda/screen') for _, path, _ in fake.calls) == 2
+
+
+async def test_screen_cache_is_cleared_even_when_disconnect_cleanup_fails(phone):
+    controller, _, runtime = phone
+    await controller.session('task', 'connect')
+    await controller.mobile('deviceScreenInfo')
+    runtime.stopped = False
+    assert (await controller.session('task', 'disconnect'))['needs_attention']
+    assert controller._screen_info_cache is None
+
+
+async def test_screen_cache_does_not_cross_disconnect_clear_session_or_new_connect(phone):
+    controller, fake, _ = phone
+    await controller.session('task', 'connect')
+    await controller.mobile('deviceScreenInfo')
+    await controller.session('task', 'disconnect')
+    assert controller._screen_info_cache is None
+    fake.screen = {'width': 844, 'height': 390}
+    await controller.session('task', 'connect')
+    assert (await controller.window_rect())['width'] == 844
+    controller.clear_session()
+    assert controller._screen_info_cache is None
+    # A new connection must not reuse cached data even if WDA reuses its ID.
+    controller._screen_info_cache = ('wda-session-1', {'screenSize': {'width': 1, 'height': 1}})
+    await controller.session('task', 'connect')
+    assert controller._screen_info_cache is None
+    assert (await controller.window_rect())['width'] == 844
+    assert sum(path.endswith('/wda/screen') for _, path, _ in fake.calls) == 3
+
+
+async def test_screen_cache_matches_appium_session_rotation_limitation(phone):
+    controller, fake, _ = phone
+    await controller.session('task', 'connect')
+    assert (await controller.window_rect())['width'] == 390
+    fake.screen = {'width': 844, 'height': 390}
+    assert (await controller.window_rect())['width'] == 390
+    assert sum(path.endswith('/wda/screen') for _, path, _ in fake.calls) == 1
 
 
 @pytest.mark.parametrize('action,kwargs,suffix', [
@@ -187,15 +264,19 @@ async def test_actions_map_to_native_routes_once_and_consume_observation(phone, 
     assert len([call for call in fake.calls if call[1].endswith(suffix)]) == 1
 
 
-async def test_component_xpath_and_text_use_wda_routes_without_appium_translation(phone):
+@pytest.mark.parametrize('text', ['hello', '你好😀\n下一行'])
+async def test_component_xpath_and_text_match_appium_native_wda_payload(phone, text):
     controller, fake, _ = phone
     await controller.session('task', 'connect')
     observed, _ = await controller.observe('task', capture_image=False)
     await controller.act('task', PhoneAction(action='type', observation_id=observed['observation_id'],
-                                             element_ref=observed['elements'][0]['ref'], text='hello'))
+                                             element_ref=observed['elements'][0]['ref'], text=text))
     query = next(body for _, path, body in fake.calls if path.endswith('/elements'))
     assert query['using'] == 'xpath' and 'search' in query['value']
-    assert fake.calls[-1] == ('POST', '/session/wda-session-1/element/element-1/value', {'text': 'hello'})
+    assert fake.calls[-1] == ('POST', '/session/wda-session-1/element/element-1/value', {'value': list(text)})
+    if '😀' in text:
+        assert fake.calls[-1][2]['value'][2] == '😀'
+        assert len(fake.calls[-1][2]['value']) == 7
 
 
 async def test_explicit_launch_uses_native_activate_and_invalidates_observation(phone):

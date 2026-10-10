@@ -397,6 +397,8 @@ def create_server(service: PhoneService) -> Server:
         instructions = instructions.replace("A running Appium\nbridge", "A prepared direct-WDA runtime")
         instructions += ("\nThis is the experimental wireless direct-WDA backend. It uses no Appium Server. "
                          "iphone_setup(start) only checks host readiness; iphone_session(connect) starts WDA. "
+                         "Screen geometry is cached within a session, matching the original backend. "
+                         "After rotating the phone, reconnect before coordinate-based actions. "
                          "Never run the original phone plugin concurrently on the same device.\n")
     server = Server("iphone-use-wireless-direct" if direct else "iphone-use", version=__version__,
                     instructions=instructions, lifespan=lifespan)

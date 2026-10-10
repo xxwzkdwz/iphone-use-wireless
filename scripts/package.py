@@ -27,6 +27,7 @@ REQUIRED_FILES = {
     "docs/WIRELESS_SETUP.md",
     "docs/WIRELESS_SETUP.en.md",
     "docs/DIRECT_WDA_EXPERIMENT.md",
+    "docs/BENCHMARK_PROTOCOL.md",
     "THIRD_PARTY_NOTICES.md",
     "licenses/Apache-2.0.txt",
     "licenses/WebDriverAgent-LICENSE.txt",
@@ -57,6 +58,7 @@ REQUIRED_FILES = {
     "scripts/run-server.sh",
     "scripts/run-direct-server.sh",
     "scripts/package.py",
+    "scripts/benchmark-backends.py",
     "skills/setup/SKILL.md",
     "skills/iphone/SKILL.md",
     "tests/test_controller.py",
@@ -70,6 +72,7 @@ REQUIRED_FILES = {
     "tests/tunnel-setup.test.mjs",
     "tests/test_direct_wda.py",
     "tests/test_direct_integration.py",
+    "tests/test_benchmark.py",
 } | PNG_ASSETS
 REQUIRED_SOURCE = {"src/vico_iphone/__init__.py", "src/vico_iphone/cli.py", "src/vico_iphone/server.py",
                    "src/vico_iphone/direct_wda.py"}

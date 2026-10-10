@@ -7,7 +7,9 @@ change. The helper owns the wireless TCP forward and (when needed) XCTest.
 from __future__ import annotations
 
 import asyncio
+import copy
 import json
+import math
 import os
 import re
 import shutil
@@ -22,6 +24,17 @@ from .iphone_control import IPhoneController, PhoneBridgeError, PhoneConfig, Pho
 MAX_RESPONSE_BYTES = 24 * 1024 * 1024
 HELPER_READY_TIMEOUT = 90
 HELPER_LINE_LIMIT = 16 * 1024
+
+# Match the installed XCUITest driver's commands/wda/startup.ts for this
+# plugin's noReset=true, autoLaunch=false session. Undefined Appium options are
+# omitted, so WDA retains the same native defaults (including idle timeout).
+APPIUM_WDA_CAPABILITIES = {
+    "arguments": [], "environment": {}, "eventloopIdleDelaySec": 0,
+    "shouldWaitForQuiescence": True, "maxTypingFrequency": 60,
+    "shouldUseSingletonTestManager": True, "shouldTerminateApp": False,
+    "forceAppLaunch": False, "useNativeCachingStrategy": True,
+    "forceSimulatorSoftwareKeyboardPresence": True,
+}
 
 
 class DirectWDARuntime:
@@ -161,6 +174,11 @@ class DirectWDAController(IPhoneController):
         super().__init__(data_directory, config=config, transport=transport)
         self.runtime = runtime or DirectWDARuntime(data_directory)
         self.client: httpx.AsyncClient | None = None
+        self._screen_info_cache: tuple[str, dict] | None = None
+
+    def clear_session(self):
+        self._screen_info_cache = None
+        super().clear_session()
 
     def load_config(self) -> PhoneConfig:
         config = super().load_config()
@@ -194,6 +212,7 @@ class DirectWDAController(IPhoneController):
             async with self.lock:
                 if self.owner not in (None, task_id):
                     raise PhoneError("只能由持有会话的任务断开")
+                self._screen_info_cache = None
                 self.observation = None
                 if self.uncertain:
                     raise PhoneError("无线 WDA 连接结果未知；请显式停止所属运行进程并核验，不能自动重试")
@@ -220,6 +239,7 @@ class DirectWDAController(IPhoneController):
 
     async def stop_runtime(self) -> dict:
         """Explicit recovery only; a dead local forwarder is not a deleted session."""
+        self._screen_info_cache = None
         error = None
         if self.session_id and self.owner and not self.uncertain:
             try:
@@ -251,6 +271,7 @@ class DirectWDAController(IPhoneController):
             if self.lease is None or self.owner is None:
                 raise PhoneBridgeError("缺少设备控制锁，不能启动无线 WDA",
                                        code="direct_lease_required", request_outcome="not_sent")
+            self._screen_info_cache = None
             try:
                 await self.runtime.start(self.config)
             except asyncio.CancelledError:
@@ -269,8 +290,8 @@ class DirectWDAController(IPhoneController):
                 raise exc
             # WDA's bundleId launches/activates an app even with forceAppLaunch
             # false. Always omit it: the shared layer enforces app-only scope.
-            body = {"capabilities": {"alwaysMatch": {"shouldTerminateApp": False},
-                                      "firstMatch": [{}]}}
+            body = {"capabilities": {"alwaysMatch": {},
+                                      "firstMatch": [copy.deepcopy(APPIUM_WDA_CAPABILITIES)]}}
         if self.client is None:
             self.client = httpx.AsyncClient(base_url=f"http://127.0.0.1:{self.config.port}",
                                             trust_env=False, follow_redirects=False,
@@ -279,6 +300,16 @@ class DirectWDAController(IPhoneController):
         window_rect = path.endswith("/window/rect")
         if window_rect:
             path = path.removesuffix("/rect") + "/size"
+        if method == "GET" and path.endswith("/source"):
+            # Match XCUITest's mobileGetSource XML scope; this is a wrapper tag,
+            # not a filter which drops parts of the accessibility tree.
+            path += "?format=xml&scope=AppiumAUT"
+        if (method == "POST" and re.fullmatch(r"/session/[A-Za-z0-9-]+/element/[A-Za-z0-9-]+/value", path)
+                and isinstance(body, dict) and isinstance(body.get("text"), str)):
+            # XCUITest setValue uses [...String(text)], i.e. Unicode code points,
+            # rather than UTF-16 halves. Shared action validation already rejects
+            # WebDriver special-key codes; ordinary newlines are kept verbatim.
+            body = {"value": list(body["text"])}
         diagnostic = {"phase": "direct_wda", "method": method, "path": original_path}
         try:
             async with self.client.stream(method, path, json=body, timeout=timeout) as response:
@@ -347,6 +378,9 @@ class DirectWDAController(IPhoneController):
                                    code="request_outcome_unknown") from exc
 
     async def mobile(self, name: str, args: dict | None = None):
+        if (name == "deviceScreenInfo" and self.session_id and self._screen_info_cache
+                and self._screen_info_cache[0] == self.session_id):
+            return copy.deepcopy(self._screen_info_cache[1])
         # Routes verified against WDA FB{Custom,Element,Session}Commands.m.
         routes = {"isLocked": ("GET", "/wda/locked"),
                   "activeAppInfo": ("GET", "/wda/activeAppInfo"),
@@ -358,5 +392,17 @@ class DirectWDAController(IPhoneController):
         if name not in routes:
             raise PhoneError("无线直连未实现该内部命令")
         method, suffix = routes[name]
-        return await self.request(method, f"/session/{self.session_id}{suffix}",
-                                  (args or {}) if method == "POST" else None)
+        value = await self.request(method, f"/session/{self.session_id}{suffix}",
+                                   (args or {}) if method == "POST" else None)
+        if name == "deviceScreenInfo" and self.session_id and isinstance(value, dict):
+            size = value.get("screenSize")
+            if isinstance(size, dict) and all(
+                type(size.get(axis)) in (int, float) and math.isfinite(size[axis])
+                and 0 < size[axis] < 10000 for axis in ("width", "height")
+            ):
+                # XCUITest memoizes getScreenInfo per driver/session. Matching
+                # that policy removes redundant wireless reads, but it also means
+                # mid-session rotation is not detected by geometry checks alone.
+                # Reconnect after rotating; cached data never crosses sessions.
+                self._screen_info_cache = (self.session_id, copy.deepcopy(value))
+        return value
