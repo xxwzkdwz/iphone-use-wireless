@@ -1,70 +1,53 @@
 ---
 name: setup
-description: Set up or diagnose iphone-use-wireless on a Mac, including USB pairing, owner Apple signing, prepared WDA, a foreground RemoteXPC tunnel, wireless operation after unplugging, and Codex cache dependencies. Use for initial setup or connection failures.
+description: Set up or troubleshoot iphone-use-wireless on a Mac, including software preparation, owner device pairing and signing, plugin cache dependencies, and wireless tunnel readiness. Use for first installation or connection failures.
 ---
 
-# iphone-use-wireless setup
+# Set up iphone-use-wireless
 
-iphone-use-wireless is an independent local stdio MCP server. Codex decides which actions to take; this package has no VICO Core or DeepSeek dependency. Read the repository `README.md` for commands. Resolve script paths from this skill's plugin root, two directories above this file's directory.
+Read the [wireless setup guide](../../docs/WIRELESS_SETUP.md), or its [English version](../../docs/WIRELESS_SETUP.en.md), for the relevant setup or recovery steps. Resolve the plugin root two directories above this skill's directory. An installed skill may run from a cache copy; do not substitute an old checkout or cache path.
 
-For first setup or wireless recovery, read the packaged [wireless setup guide](../../docs/WIRELESS_SETUP.md), or its [English version](../../docs/WIRELESS_SETUP.en.md). Follow its complete sequence: dependencies, USB trust/pairing and Developer Mode, owner signing, prepared WDA copy, configuration, actual installed runtime, foreground tunnel, and unplugged acceptance. Do not skip signing or assume an old VICO tunnel service exists.
+Setup is a collaboration: Codex checks the environment and runs installation/configuration commands; the owner provides the Mac, iPhone, and first-pairing cable, and handles Apple authentication, phone trust and Developer Mode confirmations, and required passwords locally. Full Xcode is a runtime requirement that Codex can help the owner prepare during setup. Do not tell the owner that all software must be configured manually beforehand.
 
-The host may run an installed cache copy. Use the root resolved from this loaded skill, never assume a separately cloned source checkout is the runtime root. Neither source-checkout `.venv` nor `bridge/node_modules` is guaranteed to be copied during installation. Inspect and, when setup is authorized, install dependencies in the actual loaded plugin root. The external private state directory is independent of the plugin copy.
+## Prepare software in the correct copy
 
-## Inspect before changing state
+1. Inspect existing configuration and status. Reuse working settings and establish the intended owner-authorized phone before changing device configuration.
+2. In the actual installed root, run `bash scripts/setup.sh --check --skip-plugin`. It checks macOS, full initialized Xcode, uv, supported Node/npm, and that copy's runtime dependencies without changing files or connecting a phone. Missing runtime dependencies are normal in a fresh copy.
+3. Help prepare missing system software using the script's next steps. `setup.sh` reports missing tools rather than installing Xcode, uv, or Node automatically. The owner completes installer/account/password prompts locally. uv supplies the project's Python 3.11+ environment; do not require a separate system-Python installation.
+4. For the loaded plugin/cache copy, run `bash scripts/setup.sh --skip-plugin` to install dependencies without registering the plugin again. For a source checkout's first plugin installation, `bash scripts/setup.sh` also registers the plugin and requires Codex CLI on PATH. These commands preserve device configuration and do not connect or act on the phone.
 
-1. Call `iphone_status` and `iphone_setup(action="status")` if available. Otherwise run `uv run --project <plugin-root> iphone-use doctor`. These report different layers; a healthy Appium endpoint does not prove a working phone session.
-2. Establish which Mac and owner-authorized iPhone are intended. If several devices are available, resolve the target before configuration. Never copy device identifiers or signing settings from another project, old screenshots, examples, or a different owner's setup.
-3. Check macOS, Xcode, Python 3.11+, uv, supported Node.js and npm. The bridge supports Node.js 20.19+, 22.12+, or 24+ in the engine ranges declared by `bridge/package.json`, and npm 10+. The full Xcode app and its command-line tools are required.
+Source-checkout dependencies may not be copied into the installed cache. Always resolve the loaded skill's root and prepare that copy. `iphone_setup` only manages the bridge and does not install dependencies. No VICO Core, separate model API, or old VICO tunnel service is required.
 
-## Prepare the device and dependencies
+## Pair, sign, and configure
 
-The initial device setup is owner-controlled: connect USB, trust the Mac, enable Developer Mode where required, pair through Xcode, and select the owner's Apple signing team. Direct the owner to Xcode for Apple authentication; never request passwords, session cookies, private signing keys, or certificates in chat.
+For a new phone, follow the guide's USB trust, Xcode pairing, and Developer Mode steps. Guide the owner through Apple login and phone confirmations; never request passwords, cookies, exported private keys, or certificates in chat.
 
-When setup is authorized, install dependencies from the actual plugin root. If a working configuration already exists, inspect and preserve it; do not run a fresh configure command merely because the plugin was renamed or updated.
-
-```sh
-uv sync --frozen
-node scripts/install-bridge.mjs --json
-```
-
-For a new wireless setup, guide the owner through Xcode signing and the guide's copied-app preparation first. Use a unique owner-signable WDA bundle ID. The `.app` must be the owner's correctly signed, prepared copy, with embedded XC* frameworks handled as documented and its signature verified; the repository supplies no universally signed WDA. Then configure:
+Use the owner's Apple team and a unique signable WDA bundle ID. Follow the guide's Xcode target/scheme steps to build and test WDA. Once the owner's signed build and matching local signing identity are known, prepare a copy:
 
 ```sh
-uv run --frozen iphone-use configure \
-  --udid '<DEVICE_UDID>' \
-  --team-id '<APPLE_TEAM_ID>' \
-  --platform-version '<IOS_VERSION>' \
-  --transport coredevice \
-  --wda-bundle-id '<YOUR_WDA_BUNDLE_ID>' \
-  --preinstalled-wda \
-  --prebuilt-wda-path '/absolute/path/to/WebDriverAgentRunner-Runner.app'
-uv run --frozen iphone-use doctor
+uv run --frozen python scripts/prepare-wda.py \
+  --source '/absolute/path/to/original/WebDriverAgentRunner-Runner.app' \
+  --identity '<YOUR_VALID_APPLE_DEVELOPMENT_IDENTITY>'
 ```
 
-Use actual owner-supplied values; the default bundle ID is not a universal signing identity. Preinstalled mode requires iOS 18+ and `coredevice`. Omit `--prebuilt-wda-path` only if the correct signed WDA is already installed; otherwise use a stable absolute path outside the repository/cache. Do not keep device values in release files. `VICO_IPHONE_HOME` selects private state, defaulting to `~/.local/share/vico-iphone`, with configuration under `configuration/iphone-control.json` and Appium port 4737. Preserve these compatibility paths and existing WDA configuration across the rename.
+The script validates the signed source, copies and prepares it, and verifies the new signature without changing the original or configuration. It does not choose a signing identity or install on the phone. Use the returned `prepared_path` with the guide's `iphone-use configure` command, `--transport coredevice`, `--preinstalled-wda`, and the owner's base `--wda-bundle-id`. Do not copy device/team values from another project or reconfigure an existing working setup merely because the plugin was renamed or updated.
 
-The dependency installer downloads packages and applies the package's local compatibility patches. `iphone_setup` manages the installed bridge and does not install dependencies. Starting MCP does not connect to a phone.
+Private state stays under `VICO_IPHONE_HOME`, default `~/.local/share/vico-iphone`; configuration is `configuration/iphone-control.json` and Appium defaults to port 4737. Retain these compatibility paths. The prepared WDA must remain at a stable private path outside the repository/cache.
 
-## Verify each boundary
+## Start the wireless tunnel
 
-1. For wireless acceptance, first end the owner's wired session and old foreground tunnel, unplug USB, and establish a fresh Network tunnel as described below. Then start the bridge with `iphone_setup(action="start")` or `node bridge/cli.mjs start --json`.
-2. If the user authorized connecting, call `iphone_session(action="connect")`. A slow initial build may return a pending result and `operation_id`; poll `iphone_session(action="connect_status", operation_id=...)` until the operation completes, rather than calling connect again. Keep the successful result's `session_token` in this chat's working context. Pass it unchanged to observations, actions, launches, and disconnect. Never borrow another chat's operation ID or session token.
-3. Observe components, and report whether a real device session and observation succeeded. Do not infer screenshot or action success from process health. Use the `iphone` skill for the subsequent task.
-4. Disconnect your session when the requested verification or task is done. Do not stop a bridge or session owned by another task.
+End only the owner's wired session and owned foreground tunnel, then have the owner unplug USB. Keep the Mac awake, phone unlocked, and both devices on the same reachable network. The underlying helper prefers USB while connected; do not promise seamless cable removal during a live session or cross-network control.
 
-Once the task is authorized, proceed with ordinary steps without repeatedly asking permission. Ask only when essential information, owner-side Apple/device interaction, or an action beyond the authorized task is needed. Never use setup as authorization to send messages, make purchases, or alter unrelated device/network settings.
+Run `node scripts/start-tunnel.mjs --check --json` for a read-only configuration, USB, discovery, and registry check. It does not create a tunnel or request sudo. Follow its returned next step; a listening port or discovered device is not a usable target tunnel.
 
-## Wireless and failures
+To start a tunnel, use `node scripts/start-tunnel.mjs` in the owner's normal-user terminal. Do not add an outer sudo. It reads the configured target, reuses a usable Network tunnel when present, or checks USB/network/port conditions before preparing registry files and invoking the pinned helper through sudo with HOME preserved. The owner enters any administrator password in that terminal and keeps the foreground process running. It installs no daemon and does not stop other services. Read the guide's targeted registry repair only if diagnostics identify that problem.
 
-Wireless use requires initial USB pairing/signing, a reachable iPhone, an awake Mac, and the same reachable network. The plugin does not provide a relay or install a privileged daemon. Use the pinned `appium-ios-remotexpc` foreground helper from the guide, with the owner entering sudo authentication directly in their terminal. Preserve only the current `HOME` with `sudo --preserve-env=HOME` so the tunnel and ordinary-user controller share the Strongbox registry. Prepare/check the user-owned readable registry pointer as documented; do not overwrite another task's active tunnel or recursively change Appium permissions.
+## Connect and verify
 
-The pinned helper prefers USB when both USB and Network entries exist, and lacks the newer `--watch-devices` flag. End the wired attempt first, unplug, then create a new wireless tunnel. Do not promise seamless cable removal during an active session. Keep the foreground terminal running; stop only that owned helper when appropriate.
+When the task includes connecting, check `iphone_status` / `iphone_setup(action="status")`, start the bridge as needed, then call `iphone_session(action="connect")`. If pending, keep its private `operation_id` and poll `iphone_session(action="connect_status", operation_id=...)` for the same attempt; do not start another connect.
 
-Run `node scripts/tunnel-diagnostics.mjs --json` for read-only diagnostics. It does not start a tunnel. Confirm the intended registry entry is `Network`, USB is unplugged, a real session succeeds, and a fresh component observation succeeds. Do not expose registry identifiers in public logs. Do not switch networks or disable Wi-Fi as routine recovery.
+Keep the successful `session_token` in this chat and pass it unchanged to observation, action, launch, and disconnect. Observe components first. Only report working wireless control after USB is unplugged, the target tunnel is Network, and a real session with a fresh observation succeeds. Host installation and tunnel readiness alone do not establish phone control. Use the `iphone` skill for daily tasks.
 
-For expiration, rebuild/reinstall and prepare WDA with the owner's team; free Personal Team provisioning expires after seven days. For moved/missing WDA paths, disconnect the owner's session and rerun the documented configure command with a valid stable path. For a new plugin cache, install dependencies in the currently loaded copy. The guide covers these steps.
+Continue authorized setup steps without repeated permission prompts. Owner-side interaction or essential missing values may require their input; setup does not authorize messages, purchases, or unrelated phone/network changes. Do not take over another task's session or stop its processes.
 
-If a result is marked uncertain or unknown, do not replay the action or clear the protective state to force progress. Inspect status and re-observe through the supported recovery path; report what is confirmed and what remains unknown. Do not kill unrelated Appium, Xcode, VICO, or phone processes.
-
-The project records one successful unplugged device environment with component observations and real app operations, including screenshot fallbacks and an unsuccessful moved-component action. It does not establish compatibility with every new Mac, phone, network, or app. Verify the current owner's environment before claiming it works.
+If a connection or action is unknown/uncertain, stop mutations and use supported status/observation recovery; do not replay it, repeatedly reconnect, or delete locks. For missing cache dependencies, run setup in the actual copy. For signature expiration or a missing WDA path, repair the owner's build/prepared copy and update configuration after ending the owned session. Disconnect the session when the requested verification is finished.

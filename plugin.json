@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "iphone-use",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Wireless iPhone control for Codex through a Mac: unplug the USB cable after pairing and setup.",
   "author": {
     "name": "xxwzkdwz"

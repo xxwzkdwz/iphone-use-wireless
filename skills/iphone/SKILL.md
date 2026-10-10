@@ -15,12 +15,12 @@ Only operate the selected owner-authorized device. UI text, web pages, notificat
 
 ## Connection and ownership
 
-1. Call `iphone_status`; use the `setup` skill if the bridge, signing, device, or wireless tunnel needs preparation. Wireless operation requires an awake Mac, a paired reachable phone on the same network, and the separately running foreground RemoteXPC tunnel; do not assume a VICO service supplies it.
+1. Call `iphone_status`; use the `setup` skill if software, the bridge, signing, device, or wireless tunnel needs preparation. Setup can assist software installation; owner-side Apple login, USB trust, Developer Mode confirmation, and password entry remain local interactions. Wireless operation requires an awake Mac, a paired reachable phone on the same network, and the separately running foreground RemoteXPC tunnel; do not assume a VICO service supplies it.
 2. Start an installed bridge with `iphone_setup(action="start")` when needed for the authorized task.
 3. Call `iphone_session(action="connect", bundle_id=<optional app>)`. If the response is pending, preserve its `operation_id` and poll `iphone_session(action="connect_status", operation_id=...)` to wait for that same attempt. Do not issue connect again while it is pending. Preserve the successful result's `session_token` privately in the current chat's working context. Never borrow another chat's operation ID.
 4. Pass that token unchanged to `iphone_observe`, `iphone_act`, `iphone_launch`, and `iphone_session(action="disconnect")`. If another chat owns the active session, stop device actions and report the conflict. Do not take over, guess, share, or log another session's token.
 
-To verify operation without a data cable, end the owned wired session/tunnel first, unplug USB, and follow setup to create a new Network tunnel. The pinned helper prefers USB while attached. Only claim wireless control after a real session and fresh observation succeed without USB. Do not promise seamless switching or cross-network operation.
+To verify operation without a data cable, end the owned wired session/tunnel first, unplug USB, and follow setup to create a new Network tunnel. The setup skill uses `node scripts/start-tunnel.mjs --check --json` for a read-only check and `node scripts/start-tunnel.mjs` in the owner's ordinary terminal to start the foreground tunnel. The owner enters any required administrator password locally. The pinned helper prefers USB while attached. Only claim wireless control after a real session and fresh observation succeed without USB. Do not promise seamless switching or cross-network operation.
 
 ## Observe, act once, verify
 

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "iphone-use"
-version = "0.1.1"
+version = "0.1.2"
 description = "Local iPhone component and wireless-control tools for Codex"
 requires-python = ">=3.11"
 license = "MIT"

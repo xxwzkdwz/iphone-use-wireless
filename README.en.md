@@ -2,7 +2,7 @@
 
 **Use Wi-Fi to let Codex get things done on your iPhone.**
 
-Ask Codex to open apps, find information, enter text, tap, and swipe. After initial USB pairing and signing setup, unplug the cable and use your iPhone wirelessly on the same network as your Mac.
+Ask Codex to open apps, find information, enter text, tap, and swipe. After initial USB pairing, signing, and tunnel setup, unplug the cable and use your iPhone wirelessly on the same network as your Mac.
 
 [中文](README.md) · [Setup guide](docs/WIRELESS_SETUP.en.md)
 
@@ -16,37 +16,36 @@ Ask Codex to open apps, find information, enter text, tap, and swipe. After init
 
 ## Get started
 
-You need a Mac with full Xcode, an iPhone running iOS 18+, a cable for initial pairing, and your own Apple signing account. Keep the Mac awake and the phone unlocked on the same network while operating wirelessly.
-
-Send this to Codex for guided setup:
+Bring a Mac, an iPhone running iOS 18+, a cable for initial pairing, and your own Apple Account. Send the repository link and the prompt below to **Codex running on your Mac**. It can check the environment, help prepare software including Xcode, and guide setup.
 
 ```text
 Help me set up iphone-use-wireless to control my own iPhone over Wi-Fi.
 Repository: https://github.com/xxwzkdwz/iphone-use-wireless
 
-Follow the wireless setup guide to prepare dependencies, install the plugin,
-pair the phone, configure WDA, and prepare the wireless tunnel.
-Reuse my existing configuration where possible. When I need to sign in to
-Apple, confirm a phone prompt, or enter an administrator password, explain
-what I should do locally. Finish by connecting and reading the screen with USB unplugged.
+Follow the guide: check the environment, help prepare missing software, and run setup.sh.
+Then pair the phone, configure WDA, and prepare the wireless tunnel.
+Reuse existing configuration. Guide me when I need to sign in to Apple,
+plug or unplug USB, trust the Mac, enable Developer Mode, or enter a password locally.
+Finish by connecting and reading the screen with USB unplugged.
 ```
 
-First-time preparation includes pairing, WDA signing, and a wireless tunnel. The [complete setup guide](docs/WIRELESS_SETUP.en.md) walks through each step. The plugin includes a `setup` skill for configuration and an `iphone` skill for everyday tasks.
+Codex can run checks, installation, and configuration commands. You handle Apple sign-in, phone trust and Developer Mode confirmations, and any required passwords locally. Full Xcode is required to run the project and can be prepared during setup. Follow the [installation guide](docs/WIRELESS_SETUP.en.md).
 
 <details>
 <summary>Manual installation</summary>
 
-Make sure the Codex CLI is installed and `codex` is on PATH. Install Python 3.11+, [uv](https://docs.astral.sh/uv/getting-started/installation/), Node.js 22.12+ (22.x) or 24+, and npm 10+, then run:
+Run these commands in a local terminal:
 
 ```sh
 git clone https://github.com/xxwzkdwz/iphone-use-wireless.git
 cd iphone-use-wireless
-uv sync --frozen
-node scripts/install-bridge.mjs --json
-bash scripts/install-codex.sh
+bash scripts/setup.sh --check
+bash scripts/setup.sh
 ```
 
-Complete signing, device configuration, and tunnel preparation in the [setup guide](docs/WIRELESS_SETUP.en.md). Open a new Codex chat and run `setup` to check the actual installed plugin directory. Installation commands retain the identifier `iphone-use`; the display name is **iphone-use-wireless**.
+`--check` reports readiness. Resolve missing system software first; if only plugin dependencies are missing, run `setup.sh` to install them. Installation requires full Xcode, uv (which prepares Python 3.11+), Node.js 22.12+ (22.x) or 24+, npm 10+, and the Codex CLI. `setup.sh` installs plugin runtime dependencies and registers the plugin, preserving device configuration without connecting the phone.
+
+Continue with signing, configuration, and the tunnel in the [guide](docs/WIRELESS_SETUP.en.md). Open a new chat and run `setup` to check the actual installed copy. The internal installation identifier remains `iphone-use`.
 
 Other MCP clients can launch this project's `scripts/run-server.sh` with `bash`. For direct registration in the Codex CLI:
 
@@ -54,7 +53,7 @@ Other MCP clients can launch this project's `scripts/run-server.sh` with `bash`.
 codex mcp add iphone_use -- bash '/absolute/path/to/iphone-use-wireless/scripts/run-server.sh'
 ```
 
-Choose either plugin installation or direct MCP registration.
+Choose either plugin installation or direct MCP registration; use `bash scripts/setup.sh --skip-plugin` to prepare dependencies without registering the plugin.
 
 </details>
 
@@ -66,7 +65,7 @@ Choose either plugin installation or direct MCP registration.
 
 > Open Notes and write a packing list for a weekend trip.
 
-Keep the wireless tunnel running while you work, then give Codex a task. Ask it to disconnect the phone when you are finished.
+Keep the Mac awake, the phone unlocked on the same reachable network, and the foreground wireless tunnel running. Then give Codex a task; ask it to disconnect the phone session when finished.
 
 ## More
 

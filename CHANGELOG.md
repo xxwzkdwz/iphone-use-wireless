@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.2 — Guided wireless setup
+
+- One setup command checks Mac prerequisites, prepares this copy's runtime dependencies, and registers the Codex plugin. A read-only check and an installed-cache mode are included.
+- A WDA preparation helper works on a fresh copy of the owner's signed build, removes embedded XCTest frameworks and verifies the prepared signature.
+- A foreground tunnel launcher reads the saved device configuration, checks wireless discovery and existing services, and guides local administrator authentication when needed.
+- Tunnel diagnostics inspect the local registry and distinguish wireless, USB, missing and unreachable states without starting a phone session.
+- Chinese and English guides now use the same assisted setup flow and explain which first-time steps require the owner.
+
 ## 0.1.1 — Wireless name
 
 - Display name: **iphone-use-wireless**.

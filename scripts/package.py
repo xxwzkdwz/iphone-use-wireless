@@ -44,6 +44,9 @@ REQUIRED_FILES = {
     "scripts/iphone-control-patches.mjs",
     "scripts/tunnel-diagnostics.mjs",
     "scripts/install-codex.sh",
+    "scripts/setup.sh",
+    "scripts/prepare-wda.py",
+    "scripts/start-tunnel.mjs",
     "scripts/run-server.sh",
     "scripts/package.py",
     "skills/setup/SKILL.md",
@@ -54,6 +57,9 @@ REQUIRED_FILES = {
     "tests/test_service.py",
     "tests/test_stdio.py",
     "tests/bridge.test.mjs",
+    "tests/test_setup_script.py",
+    "tests/test_prepare_wda.py",
+    "tests/tunnel-setup.test.mjs",
 }
 REQUIRED_SOURCE = {"src/vico_iphone/__init__.py", "src/vico_iphone/cli.py", "src/vico_iphone/server.py"}
 FORBIDDEN_PARTS = {
@@ -153,7 +159,7 @@ def build(root: Path, output: Path | None = None, check_only: bool = False) -> d
             for path, data in {**files, "PACKAGE_CONTENTS.json": inventory_bytes}.items():
                 info = zipfile.ZipInfo(f"{name}/{path}", (2026, 1, 1, 0, 0, 0))
                 info.create_system = 3
-                executable = path in {"scripts/run-server.sh", "scripts/install-codex.sh", "scripts/package.py"}
+                executable = path in {"scripts/run-server.sh", "scripts/install-codex.sh", "scripts/setup.sh", "scripts/prepare-wda.py", "scripts/package.py"}
                 info.external_attr = (stat.S_IFREG | (0o755 if executable else 0o644)) << 16
                 info.compress_type = zipfile.ZIP_DEFLATED
                 archive.writestr(info, data)
