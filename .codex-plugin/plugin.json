@@ -25,7 +25,7 @@
   "interface": {
     "displayName": "iphone-use-wireless",
     "shortDescription": "Control your iPhone over Wi-Fi with direct WDA.",
-    "longDescription": "Operate a real iPhone wirelessly from Codex through a direct WebDriverAgent connection. Pair and sign once with your own Apple account, then unplug USB. Requires a Mac, Xcode, a prepared wireless tunnel, and an unlocked iPhone on the same reachable network. No Appium Server or separate model API key is required.",
+    "longDescription": "Operate a real iPhone wirelessly from Codex through a direct WebDriverAgent connection. After initial pairing and signing with your own Apple account, unplug USB for everyday use. Requires a Mac, Xcode, a prepared wireless tunnel, and an unlocked iPhone on the same reachable network. No Appium Server or separate model API key is required.",
     "developerName": "xxwzkdwz",
     "category": "Productivity",
     "capabilities": [
