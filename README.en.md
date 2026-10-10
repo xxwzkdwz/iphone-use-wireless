@@ -18,8 +18,6 @@ Ask Codex to open apps, find information, enter text, tap, and swipe. After init
 - **Search and summarize**: search inside apps, open details, and turn information visible on the current page into a list or summary.
 - **Fill in and write**: use the text you provide to complete forms, write lists in Notes, or draft text in an input field.
 - **Handle continuous tasks**: work through multiple pages, switch apps when needed, and check the result after each step.
-- **Check app flows**: walk through searches, forms, and other screen flows on a real phone, observing button responses and page changes.
-- **Use your preferred client**: connect through the Codex plugin or another MCP client, with no separate model API key required for this plugin.
 
 ## Get started
 
@@ -71,8 +69,6 @@ Choose either plugin installation or direct MCP registration; use `bash scripts/
 > Search for nearby coffee shops in Maps, make a list of three places shown on the screen, and write it in Notes.
 
 > Fill in the current form using the information I provide, and stop before submitting so I can review it.
-
-> Walk through “search → view details → return to the list” in this app and describe how the screen changes at each step.
 
 Keep the Mac awake, the phone unlocked on the same reachable network, and the foreground wireless tunnel running. Then give Codex a task; ask it to disconnect the phone session when finished.
 
